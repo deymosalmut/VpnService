@@ -1,0 +1,6 @@
+@VpnService.Api_HostAddress = http://localhost:5272
+
+GET {{VpnService.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
