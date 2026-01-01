@@ -19,8 +19,7 @@ public class VpnPeerConfiguration : IEntityTypeConfiguration<VpnPeer>
             .HasMaxLength(50);
 
         builder.Property(p => p.Status)
-            .HasConversion<int>()
-            .HasDefaultValue(1);
+            .HasConversion<int>();
 
         builder.Property(p => p.CreatedAt)
             .HasDefaultValueSql("CURRENT_TIMESTAMP");

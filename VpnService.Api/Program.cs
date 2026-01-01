@@ -23,11 +23,20 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
 
 // Database configuration
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Server=localhost;Port=5432;Database=vpnservice;User Id=postgres;Password=postgres;";
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-builder.Services.AddDbContext<VpnDbContext>(options =>
-    options.UseNpgsql(connectionString));
+if (string.IsNullOrEmpty(connectionString) || connectionString.Contains("localhost"))
+{
+    // Use in-memory database for development/testing
+    builder.Services.AddDbContext<VpnDbContext>(options =>
+        options.UseInMemoryDatabase("VpnServiceDb"));
+}
+else
+{
+    // Use PostgreSQL for production
+    builder.Services.AddDbContext<VpnDbContext>(options =>
+        options.UseNpgsql(connectionString));
+}
 
 // Repository registration
 builder.Services.AddScoped<IPeerRepository, PeerRepository>();
@@ -54,18 +63,33 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
 
-// Database migration
-using (var scope = app.Services.CreateScope())
+// Database migration (only for SQL databases)
+if (!app.Environment.IsDevelopment() || 
+    (builder.Configuration.GetConnectionString("DefaultConnection") != null && 
+     !builder.Configuration.GetConnectionString("DefaultConnection")!.Contains("localhost")))
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<VpnDbContext>();
-    try
+    using (var scope = app.Services.CreateScope())
     {
-        dbContext.Database.Migrate();
-        Log.Information("Database migration completed successfully");
+        var dbContext = scope.ServiceProvider.GetRequiredService<VpnDbContext>();
+        try
+        {
+            dbContext.Database.Migrate();
+            Log.Information("Database migration completed successfully");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error during database migration");
+        }
     }
-    catch (Exception ex)
+}
+else
+{
+    // Create tables for In-Memory database
+    using (var scope = app.Services.CreateScope())
     {
-        Log.Error(ex, "Error during database migration");
+        var dbContext = scope.ServiceProvider.GetRequiredService<VpnDbContext>();
+        dbContext.Database.EnsureCreated();
+        Log.Information("In-memory database created successfully");
     }
 }
 
