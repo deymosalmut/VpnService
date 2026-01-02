@@ -1,8 +1,0 @@
-bin/
-obj/
-*.log
-*.user
-*.suo
-*.pid
-.env
-/tmp/

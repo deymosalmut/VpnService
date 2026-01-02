@@ -10,6 +10,8 @@ VpnService/
  ├── VpnService.Application/     # Use Cases, DTOs, Interfaces
  ├── VpnService.Infrastructure/  # EF Core, Repositories, Auth, Persistence
  ├── VpnService.Api/             # REST API, Controllers, Program.cs
+ ├── VpnDevOpsConsole/           # 🎮 DevOps Console Panel (C# интерфейс)
+ ├── scripts/                    # 🔧 Bash скрипты управления
  └── VpnService.sln
 ```
 
@@ -22,6 +24,42 @@ VpnService/
 - **JWT + Refresh Tokens** — Аутентификация
 - **Serilog** — Логирование
 - **Swagger/OpenAPI** — Документация API
+
+## 🎮 НОВОЕ: DevOps Console Panel
+
+Интерактивное консольное приложение на C# для управления VPN Service:
+
+```
+╔════════════════════════════════════════╗
+║   🔐 VPN SERVICE - DevOps Panel v1.0   ║
+║   Control Plane Management Console     ║
+╚════════════════════════════════════════╝
+
+🚀 УПРАВЛЕНИЕ API / 👥 УПРАВЛЕНИЕ ПИРАМИ / 🔧 ОБСЛУЖИВАНИЕ
+```
+
+**Возможности:**
+- ✅ Запуск/остановка VPN API одной командой
+- ✅ Добавление/отзыв пиров через интерфейс
+- ✅ Проверка здоровья системы
+- ✅ Просмотр логов в реальном времени
+- ✅ Применение миграций БД
+- ✅ SSH подключение к Ubuntu VM
+- ✅ Красивый UI с цветным выводом
+
+**Файлы:**
+- [VpnDevOpsConsole/Program.cs](VpnDevOpsConsole/Program.cs) — Главное приложение
+- [VpnDevOpsConsole/devops-config.json](VpnDevOpsConsole/devops-config.json) — Конфигурация
+- [scripts/vpn-devops-panel.sh](scripts/vpn-devops-panel.sh) — Bash скрипт выполнения команд
+- [VpnDevOpsConsole/INSTALL.md](VpnDevOpsConsole/INSTALL.md) — Полное руководство установки
+
+**Быстрый запуск:**
+```bash
+cd VpnDevOpsConsole
+dotnet run
+```
+
+---
 
 ## ✅ Реализовано в ЭТАПЕ 2
 

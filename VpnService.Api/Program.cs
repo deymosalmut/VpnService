@@ -4,6 +4,8 @@ using VpnService.Infrastructure.Interfaces;
 using VpnService.Infrastructure.Auth;
 using VpnService.Infrastructure.Persistence;
 using VpnService.Infrastructure.Repositories;
+using VpnService.Application.Interfaces;
+using VpnService.Infrastructure.WireGuard;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +43,9 @@ else
 // Repository registration
 builder.Services.AddScoped<IPeerRepository, PeerRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+
+// WireGuard state reader (read-only adapter)
+builder.Services.AddScoped<IWireGuardStateReader, LinuxWireGuardStateReader>();
 
 // Token service registration
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "your-secret-key-that-is-at-least-32-characters-long!";
