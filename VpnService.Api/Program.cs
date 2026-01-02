@@ -4,7 +4,7 @@ using VpnService.Infrastructure.Interfaces;
 using VpnService.Infrastructure.Auth;
 using VpnService.Infrastructure.Persistence;
 using VpnService.Infrastructure.Repositories;
-using VpnService.Application.Interfaces;
+using VpnService.Infrastructure.Abstractions;
 using VpnService.Infrastructure.WireGuard;
 
 var builder = WebApplication.CreateBuilder(args);

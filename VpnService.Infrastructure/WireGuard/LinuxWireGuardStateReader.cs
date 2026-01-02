@@ -3,11 +3,11 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using VpnService.Application.Interfaces;
+using VpnService.Infrastructure.Abstractions;
 
-namespace VpnService.Infrastructure.WireGuard;
-
-public sealed class LinuxWireGuardStateReader : IWireGuardStateReader
+namespace VpnService.Infrastructure.WireGuard
+{
+    public sealed class LinuxWireGuardStateReader : IWireGuardStateReader
 {
     private readonly ILogger<LinuxWireGuardStateReader> _logger;
     private readonly string _scriptPath;
@@ -72,5 +72,6 @@ public sealed class LinuxWireGuardStateReader : IWireGuardStateReader
         }
 
         return stdout;
+    }
     }
 }
