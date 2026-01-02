@@ -68,6 +68,11 @@ else
     echo "❌ Login failed (HTTP $LOGIN_HTTP_CODE)"
     echo "Check username and password"
 fi
+# Сохраняем токен в файл для других скриптов
+echo "$TOKEN" > .token
+chmod 600 .token
+
+echo "Token saved to .token"
 
 echo ""
 echo "=========================================="
