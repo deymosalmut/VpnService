@@ -50,6 +50,9 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 // WireGuard state reader (read-only adapter)
 builder.Services.AddScoped<IWireGuardStateReader, LinuxWireGuardStateReader>();
 
+// WireGuard command writer (write operations)
+builder.Services.AddScoped<IWireGuardCommandWriter, LinuxWireGuardCommandWriter>();
+
 // Token service registration
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "your-secret-key-that-is-at-least-32-characters-long!";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "VpnService";
