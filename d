@@ -1,264 +1,143 @@
-B) Код в проект (добавь файлы)
-1) DTO запросов (Api слой)
-VpnService.Api/DTOs/WireGuard/AdminAddPeerRequest.cs
-namespace VpnService.Api.DTOs.WireGuard;
+Отлично, что ты показал **devmenu-прогон целиком** — по этому логу видно **точно**, где мы сейчас находимся и почему ошибка всё ещё возникает.
 
-public sealed class AdminAddPeerRequest
-{
-    public string Interface { get; set; } = "wg1";
-    public string PublicKey { get; set; } = default!;
-    public string AllowedIpCidr { get; set; } = default!; // "10.0.0.2/32"
-}
+## Коротко: проблема НЕ решена полностью
 
-VpnService.Api/DTOs/WireGuard/AdminRemovePeerRequest.cs
-namespace VpnService.Api.DTOs.WireGuard;
+AmbiguousMatchException **всё ещё есть**, но теперь причина стала кристально ясной 👇
 
-public sealed class AdminRemovePeerRequest
-{
-    public string Interface { get; set; } = "wg1";
-    public string PublicKey { get; set; } = default!;
-}
+```
+The request matched multiple endpoints. Matches:
 
-2) Интерфейс write-операций (Application)
-VpnService.Application/Interfaces/IWireGuardCommandWriter.cs
-namespace VpnService.Application.Interfaces;
+VpnService.Api.Controllers.AdminWireGuardController.GetState
+VpnService.Api.Controllers.V1.WireGuardAdminController.GetState
+```
 
-public interface IWireGuardCommandWriter
-{
-    Task AddPeerAsync(string iface, string publicKey, string allowedIpCidr, CancellationToken ct);
-    Task RemovePeerAsync(string iface, string publicKey, CancellationToken ct);
-}
+➡️ **У тебя остались ДВА эндпоинта**, просто они теперь в **разных namespaces**:
 
-3) Реализация через Linux Adapter (Infrastructure)
-VpnService.Infrastructure/WireGuard/LinuxWireGuardCommandWriter.cs
-using System.Diagnostics;
-using System.Text;
-using Microsoft.Extensions.Logging;
-using VpnService.Application.Interfaces;
+* `Controllers/AdminWireGuardController`
+* `Controllers/V1/WireGuardAdminController`
 
-namespace VpnService.Infrastructure.WireGuard;
+ASP.NET Core **не волнует namespace**, ему важны:
 
-public sealed class LinuxWireGuardCommandWriter : IWireGuardCommandWriter
-{
-    private readonly ILogger<LinuxWireGuardCommandWriter> _logger;
-    private readonly string _writeScriptPath;
+* HTTP method
+* Route
 
-    public LinuxWireGuardCommandWriter(ILogger<LinuxWireGuardCommandWriter> logger)
-    {
-        _logger = logger;
-        _writeScriptPath = Environment.GetEnvironmentVariable("WG_WRITE_SCRIPT")
-            ?? "/opt/vpn-adapter/wg_write.sh";
-    }
+Если route одинаковый → будет ambiguity.
 
-    public async Task AddPeerAsync(string iface, string publicKey, string allowedIpCidr, CancellationToken ct)
-    {
-        ValidateIface(iface);
-        ValidateWgPublicKey(publicKey);
-        ValidateAllowedIpCidr(allowedIpCidr);
+---
 
-        var args = $"add {EscapeArg(iface)} {EscapeArg(publicKey)} {EscapeArg(allowedIpCidr)}";
-        await RunScriptAsync(args, ct);
-        _logger.LogInformation("WG peer added iface={Iface} allowed={Allowed}", iface, allowedIpCidr);
-    }
+# ✅ КАНОНИЧЕСКОЕ РЕШЕНИЕ (делаем правильно)
 
-    public async Task RemovePeerAsync(string iface, string publicKey, CancellationToken ct)
-    {
-        ValidateIface(iface);
-        ValidateWgPublicKey(publicKey);
+Мы сейчас на **Stage 3 Day 1**, по методичке:
 
-        var args = $"remove {EscapeArg(iface)} {EscapeArg(publicKey)}";
-        await RunScriptAsync(args, ct);
-        _logger.LogInformation("WG peer removed iface={Iface}", iface);
-    }
+> ❗ ДОЛЖЕН БЫТЬ ОДИН admin endpoint
+> `GET /api/v1/admin/wg/state`
 
-    private async Task RunScriptAsync(string args, CancellationToken ct)
-    {
-        if (!File.Exists(_writeScriptPath))
-            throw new InvalidOperationException($"WG write script not found: {_writeScriptPath}");
+### ✔ Правильная модель
 
-        using var p = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "/usr/bin/env",
-                Arguments = $"bash {_writeScriptPath} {args}",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
+* `V1/*` — **публичные клиентские API**
+* `Admin*` — **внутренние admin endpoints**
 
-        p.Start();
+WireGuard admin **НЕ должен быть в V1**.
 
-        var stdout = await p.StandardOutput.ReadToEndAsync(ct);
-        var stderr = await p.StandardError.ReadToEndAsync(ct);
-        await p.WaitForExitAsync(ct);
+---
 
-        if (p.ExitCode != 0)
-        {
-            var msg = $"WG write failed (exit {p.ExitCode}). stderr={stderr}";
-            _logger.LogError("{Msg}", msg);
-            throw new InvalidOperationException(msg);
-        }
-    }
+## 🔧 Что нужно сделать СЕЙЧАС (2 минуты)
 
-    private static void ValidateIface(string iface)
-    {
-        // минимально безопасно: буквы/цифры/подчёрк/дефис
-        if (string.IsNullOrWhiteSpace(iface) || iface.Length > 32 || iface.Any(ch => !(char.IsLetterOrDigit(ch) || ch is '_' or '-')))
-            throw new ArgumentException("Invalid interface name");
-    }
+### Шаг 1. Удалить V1 WireGuard controller
 
-    private static void ValidateWgPublicKey(string key)
-    {
-        // WG pubkey = base64, обычно 44 символа с '=' на конце.
-        if (string.IsNullOrWhiteSpace(key) || key.Length < 40 || key.Length > 60)
-            throw new ArgumentException("Invalid WireGuard public key length");
-        // можно усилить regex, но MVP достаточно
-    }
+На Ubuntu:
 
-    private static void ValidateAllowedIpCidr(string cidr)
-    {
-        // MVP: строго ожидаем /32
-        if (string.IsNullOrWhiteSpace(cidr) || !cidr.EndsWith("/32"))
-            throw new ArgumentException("AllowedIpCidr must be /32 in MVP");
-    }
+```bash
+cd /opt/vpn-service/VpnService
 
-    private static string EscapeArg(string s)
-    {
-        // bash-аргумент через одинарные кавычки
-        return "'" + s.Replace("'", "'\"'\"'") + "'";
-    }
-}
+git rm VpnService.Api/Controllers/V1/WireGuardAdminController.cs
+```
 
-4) Admin Controller (Api слой)
-VpnService.Api/Controllers/AdminWireGuardController.cs
+или если ты не хочешь удалять файл навсегда — временно отключи:
 
-(Если у тебя уже есть controller для GET /api/v1/admin/wg/state, просто добавь методы; если нет — создай целиком.)
+```bash
+mv VpnService.Api/Controllers/V1/WireGuardAdminController.cs \
+   VpnService.Api/Controllers/V1/WireGuardAdminController.cs.DISABLED
+```
 
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using VpnService.Application.Interfaces;
-using VpnService.Api.DTOs.WireGuard;
+> ⚠️ Но **git rm — правильно**. Этот контроллер не нужен по архитектуре.
 
-namespace VpnService.Api.Controllers;
+---
 
-[ApiController]
-[Route("api/v1/admin/wg")]
-[Authorize] // MVP: достаточно Authorize, роли добавим позже
-public sealed class AdminWireGuardController : ControllerBase
-{
-    private readonly IWireGuardCommandWriter _writer;
-    private readonly IWireGuardStateReader _reader; // уже есть у тебя для state endpoint
+### Шаг 2. Проверка, что остался один endpoint
 
-    public AdminWireGuardController(IWireGuardCommandWriter writer, IWireGuardStateReader reader)
-    {
-        _writer = writer;
-        _reader = reader;
-    }
+```bash
+grep -R "GetState" -n VpnService.Api/Controllers
+grep -R "admin/wg/state" -n VpnService.Api/Controllers
+```
 
-    // 3.1 (у тебя уже работает) — оставляем
-    [HttpGet("state")]
-    public async Task<IActionResult> GetState([FromQuery] string iface = "wg1", CancellationToken ct = default)
-    {
-        var json = await _reader.ReadStateJsonAsync(iface, ct);
-        return Content(json, "application/json");
-    }
+Ожидаемо: **один файл, один метод**.
 
-    // 3.2 — add peer
-    [HttpPost("peer/add")]
-    public async Task<IActionResult> AddPeer([FromBody] AdminAddPeerRequest request, CancellationToken ct)
-    {
-        await _writer.AddPeerAsync(request.Interface, request.PublicKey, request.AllowedIpCidr, ct);
-        return Ok(new { status = "OK" });
-    }
+---
 
-    // 3.2 — remove peer
-    [HttpPost("peer/remove")]
-    public async Task<IActionResult> RemovePeer([FromBody] AdminRemovePeerRequest request, CancellationToken ct)
-    {
-        await _writer.RemovePeerAsync(request.Interface, request.PublicKey, ct);
-        return Ok(new { status = "OK" });
-    }
-}
+### Шаг 3. Пересобрать и запустить
 
+```bash
+dotnet build
+dotnet run --project VpnService.Api
+```
 
-Важно: тут используется IWireGuardStateReader и метод ReadStateJsonAsync. Если у тебя сигнатура другая — скажи, я подгоню. Но идея: state reader возвращает JSON, а writer вызывает wg_write.sh.
+---
 
-5) Регистрация DI (Api/Program.cs)
+### Шаг 4. Прогнать devmenu ещё раз
 
-В Program.cs добавь:
+```bash
+cd scripts/devmenu
+./devmenu.sh
+# выбрать пункт 9 (Stage 3 E2E)
+```
 
-using VpnService.Application.Interfaces;
-using VpnService.Infrastructure.WireGuard;
+### ✅ Ожидаемый результат
 
-builder.Services.AddScoped<IWireGuardCommandWriter, LinuxWireGuardCommandWriter>();
+```
+[INFO] [1] Health           -> OK
+[INFO] [2] Login            -> OK
+[INFO] [3] Admin WG State   -> HTTP/1.1 200 OK
+```
 
+**Без AmbiguousMatchException.**
 
-И проверь, что у тебя есть:
+---
 
-app.UseAuthentication();
-app.UseAuthorization();
+# 🧠 Почему это важно (архитектурно)
 
+Ты сейчас сделал **очень правильную вещь**, поймав это на Stage 3:
 
-(Порядок: UseAuthentication до UseAuthorization.)
+* ❌ V1 admin endpoints → ломают контракт
+* ❌ два одинаковых route → неустойчивый API
+* ❌ невозможно делать reconciliation стабильно
 
-C) Скрипт теста add/remove peer (Ubuntu)
+После удаления `V1/WireGuardAdminController`:
 
-Добавь файл:
+* ✔ один контракт
+* ✔ один источник истины
+* ✔ devmenu становится надёжным
+* ✔ можно переходить к **Stage 3 Day 2 (write-path)**
 
-scripts/stage3/60_write_smoke_test.sh
-#!/usr/bin/env bash
-set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib.sh"
+---
 
-ENV_FILE="$SCRIPT_DIR/00_env"
-load_env "$ENV_FILE"
+# 🧭 Что дальше (после фикса)
 
-require_cmd curl
-require_cmd jq
+Следующий логичный шаг, **когда Stage 3 Day 1 зелёный**:
 
-log "[1] Health"
-curl -fsS "$API_URL/health" >/dev/null
-echo "OK"
+### Stage 3 Day 2
 
-log "[2] Login"
-LOGIN_JSON="$(jq -n --arg u "$ADMIN_USERNAME" --arg p "$ADMIN_PASSWORD" '{username:$u,password:$p}')"
-LOGIN_RESP="$(curl -fsS -X POST "$API_URL/api/v1/auth/login" -H "Content-Type: application/json" -d "$LOGIN_JSON")"
-TOKEN="$(echo "$LOGIN_RESP" | jq -r '.accessToken')"
-[[ -n "$TOKEN" && "$TOKEN" != "null" ]] || die "Login failed: $LOGIN_RESP"
+* `IWireGuardCommandWriter`
+* `AddPeer`
+* `RemovePeer`
+* новые пункты в devmenu:
 
-log "[3] Generate test peer keypair on server (for test only)"
-TEST_PRIV="$(wg genkey)"
-TEST_PUB="$(echo "$TEST_PRIV" | wg pubkey)"
-TEST_ALLOWED="10.0.0.250/32"
+  * `Add peer`
+  * `Remove peer`
 
-log "Test pubkey: $TEST_PUB"
-log "Allowed: $TEST_ALLOWED"
+Если хочешь — в следующем сообщении:
 
-log "[4] Call add peer endpoint"
-ADD_JSON="$(jq -n --arg i "$WG_IFACE" --arg k "$TEST_PUB" --arg a "$TEST_ALLOWED" '{interface:$i, publicKey:$k, allowedIpCidr:$a}')"
-curl -fsS -X POST "$API_URL/api/v1/admin/wg/peer/add" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "$ADD_JSON" | jq .
+* я **дам точный diff**, какой файл удалить
+* или **сразу начнём write-path** по той же схеме `pull → ./devmenu.sh → работает`
 
-log "[5] Verify peer exists in wg dump"
-bash "$WG_DUMP_SCRIPT" "$WG_IFACE" | jq -e --arg k "$TEST_PUB" '.peers[] | select(.publicKey==$k)' >/dev/null \
-  || die "Peer not found in wg dump after add"
-
-log "[6] Call remove peer endpoint"
-REM_JSON="$(jq -n --arg i "$WG_IFACE" --arg k "$TEST_PUB" '{interface:$i, publicKey:$k}')"
-curl -fsS -X POST "$API_URL/api/v1/admin/wg/peer/remove" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "$REM_JSON" | jq .
-
-log "[7] Verify peer removed"
-if bash "$WG_DUMP_SCRIPT" "$WG_IFACE" | jq -e --arg k "$TEST_PUB" '.peers[] | select(.publicKey==$k)' >/dev/null; then
-  die "Peer still present in wg dump after remove"
-fi
-
-log "DONE: write-path smoke test OK"
+Ты сейчас реально в **точке перехода от API к реальному VPN**. Всё идёт правильно 💪
