@@ -2,7 +2,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VpnService.Domain\VpnService.Domain.csproj" />
-    <ProjectReference Include="..\VpnService.Infrastructure\VpnService.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\VpnService.Infrastructure.Abstractions\VpnService.Infrastructure.Abstractions.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

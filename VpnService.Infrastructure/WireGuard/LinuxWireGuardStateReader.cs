@@ -3,11 +3,11 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using VpnService.Infrastructure.Abstractions;
+using VpnService.Infrastructure.Abstractions.WireGuard;
 
-namespace VpnService.Infrastructure.WireGuard
-{
-    public sealed class LinuxWireGuardStateReader : IWireGuardStateReader
+namespace VpnService.Infrastructure.WireGuard;
+
+public sealed class LinuxWireGuardStateReader : IWireGuardStateReader
 {
     private readonly ILogger<LinuxWireGuardStateReader> _logger;
     private readonly string _scriptPath;
@@ -20,7 +20,7 @@ namespace VpnService.Infrastructure.WireGuard
         _scriptPath = scriptPath;
     }
 
-    public async Task<string> GetDumpJsonAsync(string iface, CancellationToken ct = default)
+    public async Task<string> ReadStateJsonAsync(string iface, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(iface))
             throw new ArgumentException("iface is required", nameof(iface));
@@ -72,6 +72,5 @@ namespace VpnService.Infrastructure.WireGuard
         }
 
         return stdout;
-    }
     }
 }

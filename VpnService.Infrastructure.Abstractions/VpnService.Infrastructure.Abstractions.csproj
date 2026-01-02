@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\VpnService.Domain\VpnService.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

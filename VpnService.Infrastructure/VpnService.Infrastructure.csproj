@@ -3,6 +3,11 @@
   <ItemGroup>
     <ProjectReference Include="..\VpnService.Domain\VpnService.Domain.csproj" />
     <ProjectReference Include="..\VpnService.Infrastructure.Abstractions\VpnService.Infrastructure.Abstractions.csproj" />
+    <ProjectReference Include="..\VpnService.Application\VpnService.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Repositories\IPeerRepository.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,10 +1,10 @@
+// Obsolete duplicate. Use VpnService.Infrastructure.Abstractions.WireGuard.IWireGuardStateReader instead.
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace VpnService.Application.Interfaces
+namespace VpnService.Application.Interfaces.Obsolete;
+
+public interface IWireGuardStateReader_Old
 {
-    public interface IWireGuardStateReader
-    {
-        Task<string> GetDumpJsonAsync(string iface, CancellationToken ct = default);
-    }
+    Task<string> GetDumpJsonAsync(string iface, CancellationToken ct = default);
 }

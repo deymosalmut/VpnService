@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VpnService.Application.Interfaces;
+using VpnService.Infrastructure.Abstractions.WireGuard;
 using VpnService.Api.DTOs.WireGuard;
 
 namespace VpnService.Api.Controllers;
@@ -10,12 +11,10 @@ namespace VpnService.Api.Controllers;
 [Authorize] // MVP: достаточно Authorize, роли добавим позже
 public sealed class AdminWireGuardController : ControllerBase
 {
-    private readonly IWireGuardCommandWriter _writer;
-    private readonly IWireGuardStateReader _reader; // уже есть у тебя для state endpoint
+    private readonly IWireGuardStateReader _reader; // read-only for Stage 3
 
-    public AdminWireGuardController(IWireGuardCommandWriter writer, IWireGuardStateReader reader)
+    public AdminWireGuardController(IWireGuardStateReader reader)
     {
-        _writer = writer;
         _reader = reader;
     }
 
@@ -29,17 +28,9 @@ public sealed class AdminWireGuardController : ControllerBase
 
     // 3.2 — add peer
     [HttpPost("peer/add")]
-    public async Task<IActionResult> AddPeer([FromBody] AdminAddPeerRequest request, CancellationToken ct)
-    {
-        await _writer.AddPeerAsync(request.Interface, request.PublicKey, request.AllowedIpCidr, ct);
-        return Ok(new { status = "OK" });
-    }
+    public IActionResult AddPeer() => StatusCode(501, new { status = "NotImplemented", message = "Write operations disabled in Stage 3" });
 
-    // 3.2 — remove peer
+    // 3.2 — remove peer (not implemented in read-only Stage 3)
     [HttpPost("peer/remove")]
-    public async Task<IActionResult> RemovePeer([FromBody] AdminRemovePeerRequest request, CancellationToken ct)
-    {
-        await _writer.RemovePeerAsync(request.Interface, request.PublicKey, ct);
-        return Ok(new { status = "OK" });
-    }
+    public IActionResult RemovePeer() => StatusCode(501, new { status = "NotImplemented", message = "Write operations disabled in Stage 3" });
 }

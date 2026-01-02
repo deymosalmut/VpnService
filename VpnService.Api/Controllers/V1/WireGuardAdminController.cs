@@ -2,7 +2,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using VpnService.Infrastructure.Abstractions;
+using VpnService.Infrastructure.Abstractions.WireGuard;
 
 namespace VpnService.Api.Controllers.V1
 {
@@ -21,7 +21,7 @@ namespace VpnService.Api.Controllers.V1
         [HttpGet("state")]
         public async Task<IActionResult> GetState([FromQuery] string iface = "wg1", CancellationToken ct = default)
         {
-            var json = await _reader.GetDumpJsonAsync(iface, ct);
+            var json = await _reader.ReadStateJsonAsync(iface, ct);
             return Content(json, "application/json");
         }
     }
