@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using System.Text;
 using VpnService.Infrastructure.Interfaces;
 using VpnService.Infrastructure.Auth;
 using VpnService.Infrastructure.Persistence;
@@ -53,6 +56,25 @@ var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "VpnService";
 
 builder.Services.AddSingleton<ITokenService>(new TokenService(jwtKey, jwtIssuer));
 
+// JWT Authentication configuration
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = "vpn-api",
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 // Logging
 var app = builder.Build();
 
@@ -64,6 +86,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
