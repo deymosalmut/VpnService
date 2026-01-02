@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-API="http://localhost:5272"
-USER="admin"
-PASS="admin123"
+API="http://localhost:8080"
+USER="testuser"
+PASS="SecurePass2026"
 
 echo "[1] Health check"
 curl -s "$API/health"
