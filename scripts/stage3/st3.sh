@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-API="http://localhost:8080"
-USER="testuser"
+API="http://localhost:5272"
+USER="testuse1r"
 PASS="SecurePass2026"
 
 echo "[1] Health check"
