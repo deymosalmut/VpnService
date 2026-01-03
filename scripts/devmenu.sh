@@ -6,7 +6,7 @@ export PROJ="${PROJ:-/opt/vpn-service/VpnService}"
 export API_URL="${API_URL:-http://localhost:5272}"
 export IFACE="${IFACE:-wg1}"
 
-REPORT_DIR="${HOME}/vpn_reports"
+export REPORT_DIR="${REPORT_DIR:-/opt/vpn-service}"
 mkdir -p "$REPORT_DIR"
 
 # Файлы состояния
