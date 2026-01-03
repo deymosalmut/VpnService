@@ -4,16 +4,20 @@ set -Eeuo pipefail
 # ============================================================
 # VPN SERVICE DEV MENU + REPORTING (ENGLISH ONLY)
 # ============================================================
-
 # ---------- Config (override via env) ----------
 export API_URL="${API_URL:-http://localhost:5272}"
 export IFACE="${IFACE:-wg1}"
 
-# Repo root resolved relative to this script (works from any CWD)
+# Resolve script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export PROJ="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Reports inside Git repo (override via env)
+# Repo root (one level above scripts/)
+export REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Project root = repo root
+export PROJ="$REPO_ROOT"
+
+# Reports inside repo
 export REPORT_DIR="${REPORT_DIR:-$REPO_ROOT/reports}"
 mkdir -p "$REPORT_DIR"
 
