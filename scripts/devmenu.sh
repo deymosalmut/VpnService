@@ -1,179 +1,283 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# --- Конфигурация ---
+# ============================================================
+# VPN SERVICE DEV MENU + REPORTING (ENGLISH ONLY)
+# ============================================================
+
+# ---------- Config (override via env) ----------
 export PROJ="${PROJ:-/opt/vpn-service/VpnService}"
 export API_URL="${API_URL:-http://localhost:5272}"
 export IFACE="${IFACE:-wg1}"
 
-export REPORT_DIR="${REPORT_DIR:-/opt/vpn-service}"
+# Repo root resolved relative to this script (works from any CWD)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Reports inside Git repo (override via env)
+export REPORT_DIR="${REPORT_DIR:-$REPO_ROOT/reports}"
 mkdir -p "$REPORT_DIR"
 
-# Файлы состояния
-PID_FILE="${REPORT_DIR}/api.pid"
-LAST_TOKEN_FILE="${REPORT_DIR}/last_token.txt"
+# State files
+PID_FILE="$REPORT_DIR/api.pid"
+LAST_TOKEN_FILE="$REPORT_DIR/last_token.txt"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+# Optional behavior
+# If REPORT_GIT_COMMIT=1 -> auto-commit report file to current repo
+export REPORT_GIT_COMMIT="${REPORT_GIT_COMMIT:-0}"
 
-get_report_name() {
+# Colors (ASCII-only output still OK)
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[1;33m'
+NC=$'\033[0m'
+
+# ---------- Helpers ----------
+die() { echo "${RED}ERROR:${NC} $*" >&2; exit 1; }
+
+need() {
+  command -v "$1" >/dev/null 2>&1 || die "'$1' not found. Install it first."
+}
+
+pause() {
+  read -r -p "Press Enter to continue... " _ </dev/tty || true
+}
+
+now_utc() { date -u +'%Y-%m-%d_%H-%M-%S'; }
+
+report_name() {
   echo "$REPORT_DIR/report_$(date +'%Y-%m-%d_%H-%M-%S').log"
 }
 
 header() {
-  echo -e "\n${YELLOW}>>> $1${NC}"
-}
-
-pause() {
-  read -r -p "Нажмите Enter..."
-}
-
-need() {
-  command -v "$1" >/dev/null 2>&1 || {
-    echo -e "${RED}ERROR: '$1' не найден. Установи пакет/утилиту.${NC}"
-    return 1
-  }
+  echo
+  echo "${YELLOW}>>> $*${NC}"
 }
 
 log_block() {
-  local task="$1"
-  local log="$2"
+  local task="$1" log="$2"
   {
     echo "-------------------------------------------"
     echo "TASK: $task"
-    echo "TIME: $(date)"
+    echo "TIME_UTC: $(date -u)"
+    echo "HOST: $(hostname)"
+    echo "REPO_ROOT: $REPO_ROOT"
     echo "-------------------------------------------"
-  } | tee -a "$log"
+  } | tee -a "$log" >/dev/null
 }
 
 run_and_log() {
-  local task="$1"; local log="$2"; shift 2
+  # Usage: run_and_log "Task name" "$log" cmd arg1 arg2...
+  local task="$1" log="$2"
+  shift 2
+
   log_block "$task" "$log"
-  # выполняем команду безопасно (без eval)
-  "$@" 2>&1 | tee -a "$log"
+  {
+    echo "+ $*"
+    "$@"
+  } 2>&1 | tee -a "$log"
   echo | tee -a "$log" >/dev/null
 }
 
+run_shell_and_log() {
+  # For commands that require shell parsing / pipes
+  # Usage: run_shell_and_log "Task" "$log" "shell command..."
+  local task="$1" log="$2" cmd="$3"
+  log_block "$task" "$log"
+  {
+    echo "+ bash -lc $cmd"
+    bash -lc "$cmd"
+  } 2>&1 | tee -a "$log"
+  echo | tee -a "$log" >/dev/null
+}
+
+# ---------- Git helpers ----------
+git_repo_root() {
+  git -C "$REPO_ROOT" rev-parse --show-toplevel >/dev/null 2>&1
+}
+
+git_commit_report_if_enabled() {
+  local report="$1"
+  [[ "$REPORT_GIT_COMMIT" == "1" ]] || return 0
+  git_repo_root || return 0
+
+  # Only commit if file exists and repo is cleanable
+  if [[ -f "$report" ]]; then
+    git -C "$REPO_ROOT" add "$report" >/dev/null 2>&1 || true
+    # Commit only if staged changes exist
+    if ! git -C "$REPO_ROOT" diff --cached --quiet; then
+      git -C "$REPO_ROOT" commit -m "Add report $(basename "$report")" >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
+# ---------- API process helpers ----------
 api_running() {
   [[ -f "$PID_FILE" ]] || return 1
   local pid
   pid="$(cat "$PID_FILE" 2>/dev/null || true)"
-  [[ -n "${pid:-}" ]] && kill -0 "$pid" >/dev/null 2>&1
+  [[ -n "${pid:-}" ]] || return 1
+  kill -0 "$pid" >/dev/null 2>&1
 }
 
 api_start_bg() {
   local log="$1"
+  need dotnet
+  need curl
+
   if api_running; then
-    echo -e "${YELLOW}API уже запущен PID=$(cat "$PID_FILE"). Сначала останови.${NC}" | tee -a "$log"
+    echo "${YELLOW}API already running. PID=$(cat "$PID_FILE")${NC}" | tee -a "$log" >/dev/null
     return 0
   fi
 
-  run_and_log "API: start background" "$log" bash -lc "
-    cd '$PROJ'
-    nohup dotnet run --project VpnService.Api > '$log.api.out' 2>&1 &
-    echo \$! > '$PID_FILE'
-    echo 'PID=' \$(cat '$PID_FILE')
-  "
+  # Start in background with nohup; log to a stable file
+  local api_out="${log}.api.out"
 
-  # Подождём и дернем health
-  sleep 1
-  run_and_log "API: health probe" "$log" curl -sS "$API_URL/health"
+  log_block "API: start background" "$log"
+  (
+    cd "$PROJ"
+    nohup dotnet run --project VpnService.Api >"$api_out" 2>&1 &
+    echo $! >"$PID_FILE"
+  )
+
+  local pid
+  pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+  echo "Started API background PID=$pid" | tee -a "$log" >/dev/null
+  echo "API stdout/stderr: $api_out" | tee -a "$log" >/dev/null
+
+  # Health probe (retry up to ~10s)
+  log_block "API: health probe" "$log"
+  local ok=0
+  for _ in {1..10}; do
+    if curl -fsS "$API_URL/health" >/dev/null 2>&1; then ok=1; break; fi
+    sleep 1
+  done
+
+  if [[ "$ok" == "1" ]]; then
+    echo "Health: OK ($API_URL/health)" | tee -a "$log" >/dev/null
+  else
+    echo "${RED}Health: FAILED${NC} ($API_URL/health)" | tee -a "$log" >/dev/null
+    echo "Check: $api_out" | tee -a "$log" >/dev/null
+    return 1
+  fi
 }
 
-api_stop() {
+api_stop_bg() {
   local log="$1"
+
   if ! api_running; then
-    echo -e "${YELLOW}API не запущен.${NC}" | tee -a "$log"
+    echo "${YELLOW}API is not running.${NC}" | tee -a "$log" >/dev/null
+    rm -f "$PID_FILE" >/dev/null 2>&1 || true
     return 0
   fi
+
   local pid
   pid="$(cat "$PID_FILE")"
-  run_and_log "API: stop (PID=$pid)" "$log" bash -lc "
-    kill $pid || true
-    sleep 1
-    kill -9 $pid 2>/dev/null || true
-    rm -f '$PID_FILE'
-    echo 'stopped'
-  "
+
+  run_and_log "API: stop (PID=$pid)" "$log" bash -lc "kill $pid >/dev/null 2>&1 || true"
+  sleep 1
+
+  if kill -0 "$pid" >/dev/null 2>&1; then
+    run_and_log "API: force kill (PID=$pid)" "$log" bash -lc "kill -9 $pid >/dev/null 2>&1 || true"
+  fi
+
+  rm -f "$PID_FILE" >/dev/null 2>&1 || true
+  echo "Stopped." | tee -a "$log" >/dev/null
 }
 
 api_run_fg() {
-  # foreground без отчёта — чтобы видно было живой лог
+  need dotnet
   cd "$PROJ"
   dotnet run --project VpnService.Api
 }
 
+# ---------- Auth/token ----------
 get_token() {
-  # Печатает token в stdout. Если не удалось — пусто.
+  need curl
+  need python3
+
   local login_json
   login_json="$(curl -sS -X POST "$API_URL/api/v1/auth/login" \
     -H "Content-Type: application/json" \
     -d '{"username":"admin","password":"admin123"}' || true)"
 
-  # если это не json/ошибка — вернем пусто
+  # Print accessToken or empty string
   echo "$login_json" | python3 - <<'PY' 2>/dev/null || true
 import sys, json
 try:
-    data=json.load(sys.stdin)
+    data = json.load(sys.stdin)
     print(data.get("accessToken",""))
 except Exception:
     print("")
 PY
 }
 
+# ---------- Diagnostics ----------
 system_diag() {
   local log="$1"
-  run_and_log "System: whoami/hostname/date" "$log" bash -lc 'whoami; hostname; date'
-  run_and_log "System: timedatectl (top)" "$log" bash -lc 'timedatectl | sed -n "1,10p"'
-  run_and_log "Network: ip -br a" "$log" bash -lc 'ip -br a'
-  run_and_log "Network: routes" "$log" bash -lc 'ip r'
-  run_and_log "Network: ping 8.8.8.8" "$log" bash -lc 'ping -c 1 8.8.8.8'
+  need ip
+  need ping
+
+  run_and_log "System: whoami/hostname/date" "$log" whoami
+  run_and_log "System: hostname" "$log" hostname
+  run_and_log "System: date (UTC)" "$log" date -u
+
+  if command -v timedatectl >/dev/null 2>&1; then
+    run_shell_and_log "System: timedatectl (top)" "$log" "timedatectl | sed -n '1,10p'"
+  fi
+
+  run_and_log "Network: ip -br a" "$log" ip -br a
+  run_and_log "Network: routes" "$log" ip r
+  run_and_log "Network: ping 8.8.8.8" "$log" ping -c 1 8.8.8.8
 }
 
 wg_diag() {
   local log="$1"
-  need wg || return 1
-  run_and_log "WireGuard: wg show" "$log" bash -lc 'sudo wg show'
-  run_and_log "WireGuard: wg show dump" "$log" bash -lc "sudo wg show '$IFACE' dump | head -n 30"
+  need wg
+
+  # wg show does not require sudo if already root; keep it clean
+  run_and_log "WireGuard: wg show" "$log" wg show
+  run_shell_and_log "WireGuard: wg show dump (first 30 lines)" "$log" "wg show '$IFACE' dump | head -n 30"
 }
 
 git_update() {
   local log="$1"
-  run_and_log "Git: status" "$log" bash -lc "cd '$PROJ' && git status"
-  run_and_log "Git: fetch --all --prune" "$log" bash -lc "cd '$PROJ' && git fetch --all --prune"
-  run_and_log "Git: pull --rebase" "$log" bash -lc "cd '$PROJ' && git pull --rebase"
-  run_and_log "Git: log -5" "$log" bash -lc "cd '$PROJ' && git log -5 --oneline"
+  need git
+
+  run_shell_and_log "Git: status" "$log" "cd '$PROJ' && git status"
+  run_shell_and_log "Git: fetch --all --prune" "$log" "cd '$PROJ' && git fetch --all --prune"
+  run_shell_and_log "Git: pull --rebase" "$log" "cd '$PROJ' && git pull --rebase"
+  run_shell_and_log "Git: log -5" "$log" "cd '$PROJ' && git log -5 --oneline"
 }
 
 build_check() {
   local log="$1"
-  need dotnet || return 1
-  run_and_log "Build: dotnet --info (top)" "$log" bash -lc "dotnet --info | sed -n '1,25p'"
-  run_and_log "Build: clean" "$log" bash -lc "cd '$PROJ' && dotnet clean"
-  run_and_log "Build: remove bin/obj" "$log" bash -lc "cd '$PROJ' && find . -type d \\( -name bin -o -name obj \\) -prune -exec rm -rf {} +"
-  run_and_log "Build: restore" "$log" bash -lc "cd '$PROJ' && dotnet restore"
-  run_and_log "Build: build Debug" "$log" bash -lc "cd '$PROJ' && dotnet build -c Debug"
+  need dotnet
+  need find
+
+  run_shell_and_log "Build: dotnet --info (top)" "$log" "dotnet --info | sed -n '1,25p'"
+  run_shell_and_log "Build: clean" "$log" "cd '$PROJ' && dotnet clean"
+  run_shell_and_log "Build: remove bin/obj" "$log" "cd '$PROJ' && find . -type d \\( -name bin -o -name obj \\) -prune -exec rm -rf {} +"
+  run_shell_and_log "Build: restore" "$log" "cd '$PROJ' && dotnet restore"
+  run_shell_and_log "Build: build Debug" "$log" "cd '$PROJ' && dotnet build -c Debug"
 }
 
 route_audit() {
   local log="$1"
-  run_and_log "Route audit: WireGuard controllers/classes" "$log" bash -lc "
-    cd '$PROJ'
-    grep -R --line-number 'class .*WireGuard' VpnService.Api/Controllers || true
-  "
-  run_and_log "Route audit: admin/wg/state routes" "$log" bash -lc "
-    cd '$PROJ'
-    grep -R --line-number 'admin/wg/state' VpnService.Api/Controllers || true
-    grep -R --line-number '\\[Route' VpnService.Api/Controllers | grep -i wg || true
-  "
+  need grep
+
+  run_shell_and_log "Route audit: WireGuard controllers/classes" "$log" \
+    "cd '$PROJ' && grep -R --line-number 'class .*WireGuard' VpnService.Api/Controllers || true"
+
+  run_shell_and_log "Route audit: wg routes" "$log" \
+    "cd '$PROJ' && { grep -R --line-number 'admin/wg/state' VpnService.Api/Controllers || true; \
+                     grep -R --line-number '\\[Route' VpnService.Api/Controllers | grep -i wg || true; }"
 }
 
 smoke_auth_and_state() {
   local log="$1"
-  need curl || return 1
-  need python3 || return 1
+  need curl
+  need python3
 
   run_and_log "Smoke: health" "$log" curl -sS "$API_URL/health"
 
@@ -182,128 +286,153 @@ smoke_auth_and_state() {
   token="$(get_token)"
 
   if [[ -z "${token:-}" ]]; then
-    echo -e "${RED}ERROR: token пустой. Проверь /api/v1/auth/login и лог API.${NC}" | tee -a "$log"
-    echo "Подсказка: открой swagger или проверь DTO для LoginRequest." | tee -a "$log"
+    echo "${RED}ERROR:${NC} access token is empty. Check /api/v1/auth/login and API logs." | tee -a "$log" >/dev/null
+    echo "Hint: verify LoginRequest DTO and credentials." | tee -a "$log" >/dev/null
     return 1
   fi
 
-  echo "$token" > "$LAST_TOKEN_FILE"
-  echo -e "TOKEN(short): ${token:0:25}..." | tee -a "$log"
+  echo "$token" >"$LAST_TOKEN_FILE"
+  echo "TOKEN(short): ${token:0:25}..." | tee -a "$log" >/dev/null
   echo | tee -a "$log" >/dev/null
 
-  run_and_log "Smoke: WG state (protected)" "$log" bash -lc "
-    curl -sS '$API_URL/api/v1/admin/wg/state?iface=$IFACE' \
-      -H 'Authorization: Bearer $token'
-  "
+  run_shell_and_log "Smoke: WG state (protected)" "$log" \
+    "curl -sS '$API_URL/api/v1/admin/wg/state?iface=$IFACE' -H 'Authorization: Bearer $token'"
 }
 
 list_reports() {
-  header "Последние отчеты ($REPORT_DIR)"
-  ls -lh "$REPORT_DIR" | tail -n 20
+  header "Recent reports in $REPORT_DIR"
+  ls -lh "$REPORT_DIR" | tail -n 30
 }
 
+# ---------- Menu ----------
 show_menu() {
   clear
-  echo "=========================================="
-  echo "   VPN SERVICE DEV MENU + REPORTING       "
-  echo "=========================================="
-  echo "1) [Full Audit] Прогнать всё и создать отчет"
-  echo "2) [Diag] Проверка системы"
-  echo "3) [WG] Проверка WireGuard"
-  echo "4) [Git] Обновить проект (fetch/pull)"
-  echo "5) [Build] Сборка (clean/restore/build)"
-  echo "6) [API] Управление API (fg/bg/stop)"
-  echo "7) [Smoke] Тест API (Auth + State)"
-  echo "8) [Routes] Route audit (ловим AmbiguousMatch)"
-  echo "L) [Logs] Посмотреть список отчетов"
-  echo "0) Выход"
-  echo "=========================================="
+  cat <<EOF
+==========================================
+   VPN SERVICE DEV MENU + REPORTING
+==========================================
+Repo root : $REPO_ROOT
+Project   : $PROJ
+API URL   : $API_URL
+WG iface  : $IFACE
+Reports   : $REPORT_DIR
+AutoCommit: $REPORT_GIT_COMMIT
+------------------------------------------
+1) [Full Audit] Run all checks and write report
+2) [Diag] System diagnostics
+3) [WG] WireGuard diagnostics
+4) [Git] Update project (fetch/pull --rebase)
+5) [Build] Clean/restore/build
+6) [API] API control (fg/bg/stop)
+7) [Smoke] API test (Auth + WG state)
+8) [Routes] Route audit (catch AmbiguousMatch)
+L) [Logs] List recent reports
+0) Exit
+==========================================
+EOF
 }
 
+api_menu() {
+  clear
+  cat <<EOF
+------------------------------------------
+API CONTROL  (API_URL=$API_URL)
+------------------------------------------
+1) Run API foreground (Ctrl+C to stop)
+2) Start API in background
+3) Stop background API
+0) Back
+------------------------------------------
+EOF
+  read -r -p "Select: " a </dev/tty || true
+  local report
+  report="$(report_name)"
+
+  case "$a" in
+    1) api_run_fg ;;
+    2) api_start_bg "$report"; echo "API log: ${report}.api.out"; pause ;;
+    3) api_stop_bg "$report"; pause ;;
+    0) : ;;
+    *) echo "Invalid choice."; sleep 1 ;;
+  esac
+}
+
+run_full_audit() {
+  local report
+  report="$(report_name)"
+  header "Running full audit. Report: $report"
+
+  system_diag "$report" || true
+  wg_diag "$report" || true
+  git_update "$report" || true
+  build_check "$report" || true
+  route_audit "$report" || true
+  smoke_auth_and_state "$report" || true
+
+  echo "${GREEN}Report created:${NC} $report"
+  git_commit_report_if_enabled "$report" || true
+  pause
+}
+
+# ---------- Main loop ----------
 while true; do
   show_menu
-  read -r -p "Выберите действие: " opt
+  read -r -p "Select option: " opt </dev/tty || true
+
   case "$opt" in
-    1)
-      REPORT="$(get_report_name)"
-      header "Запуск полного аудита... Отчет: $REPORT"
-
-      system_diag "$REPORT" || true
-      wg_diag "$REPORT" || true
-      git_update "$REPORT" || true
-      build_check "$REPORT" || true
-      route_audit "$REPORT" || true
-      smoke_auth_and_state "$REPORT" || true
-
-      echo -e "${GREEN}Отчет сформирован: $REPORT${NC}"
-      pause
-      ;;
+    1) run_full_audit ;;
     2)
-      REPORT="$(get_report_name)"
-      header "Diag... Отчет: $REPORT"
-      system_diag "$REPORT" || true
-      echo -e "${GREEN}Отчет: $REPORT${NC}"
+      report="$(report_name)"
+      header "Running system diagnostics. Report: $report"
+      system_diag "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      git_commit_report_if_enabled "$report" || true
       pause
       ;;
     3)
-      REPORT="$(get_report_name)"
-      header "WG... Отчет: $REPORT"
-      wg_diag "$REPORT" || true
-      echo -e "${GREEN}Отчет: $REPORT${NC}"
+      report="$(report_name)"
+      header "Running WireGuard diagnostics. Report: $report"
+      wg_diag "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      git_commit_report_if_enabled "$report" || true
       pause
       ;;
     4)
-      REPORT="$(get_report_name)"
-      header "Git update... Отчет: $REPORT"
-      git_update "$REPORT" || true
-      echo -e "${GREEN}Отчет: $REPORT${NC}"
+      report="$(report_name)"
+      header "Running git update. Report: $report"
+      git_update "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      git_commit_report_if_enabled "$report" || true
       pause
       ;;
     5)
-      REPORT="$(get_report_name)"
-      header "Build... Отчет: $REPORT"
-      build_check "$REPORT" || true
-      echo -e "${GREEN}Отчет: $REPORT${NC}"
+      report="$(report_name)"
+      header "Running build. Report: $report"
+      build_check "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      git_commit_report_if_enabled "$report" || true
       pause
       ;;
-    6)
-      clear
-      echo "------------------------------------------"
-      echo "API control (API_URL=$API_URL)"
-      echo "------------------------------------------"
-      echo "1) Run API foreground (Ctrl+C to stop)"
-      echo "2) Start API in background"
-      echo "3) Stop background API"
-      echo "0) Back"
-      read -r -p "Select: " a
-      REPORT="$(get_report_name)"
-      case "$a" in
-        1) api_run_fg ;;
-        2) api_start_bg "$REPORT"; echo -e "${GREEN}Лог: $REPORT.api.out${NC}"; pause ;;
-        3) api_stop "$REPORT"; pause ;;
-        0) : ;;
-        *) echo "Неверный выбор"; sleep 1 ;;
-      esac
-      ;;
+    6) api_menu ;;
     7)
-      REPORT="$(get_report_name)"
-      header "Smoke Test... Отчет: $REPORT"
-      smoke_auth_and_state "$REPORT" || true
-      echo -e "${GREEN}Отчет: $REPORT${NC}"
+      report="$(report_name)"
+      header "Running smoke tests. Report: $report"
+      smoke_auth_and_state "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      git_commit_report_if_enabled "$report" || true
       pause
       ;;
     8)
-      REPORT="$(get_report_name)"
-      header "Route audit... Отчет: $REPORT"
-      route_audit "$REPORT" || true
-      echo -e "${GREEN}Отчет: $REPORT${NC}"
+      report="$(report_name)"
+      header "Running route audit. Report: $report"
+      route_audit "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      git_commit_report_if_enabled "$report" || true
       pause
       ;;
-    L|l)
-      list_reports
-      pause
-      ;;
+    L|l) list_reports; pause ;;
     0) exit 0 ;;
-    *) echo "Неверный выбор"; sleep 1 ;;
+    *) echo "Invalid choice."; sleep 1 ;;
   esac
 done
+# ============================================================
