@@ -1,0 +1,69 @@
+-------------------------------------------
+TASK: Build: dotnet --info (top)
+TIME_UTC: Сб 03 янв 2026 16:50:49 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc dotnet --info | sed -n '1,25p'
+ПАКЕТ SDK ДЛЯ .NET:
+ Version:           9.0.203
+ Commit:            dc7acfa194
+ Workload version:  9.0.200-manifests.9df47798
+ MSBuild version:   17.13.20+a4ef1e90f
+
+Среда выполнения:
+ OS Name:     ubuntu
+ OS Version:  24.04
+ OS Platform: Linux
+ RID:         linux-x64
+ Base Path:   /usr/share/dotnet/sdk/9.0.203/
+
+Установленные рабочие нагрузки .NET:
+Нет установленных рабочих нагрузок для отображения.
+Настроено на использование loose manifests при установке новых манифестов.
+
+Host:
+  Version:      9.0.4
+  Architecture: x64
+  Commit:       f57e6dc747
+
+.NET SDKs installed:
+  8.0.416 [/usr/share/dotnet/sdk]
+  9.0.203 [/usr/share/dotnet/sdk]
+
+-------------------------------------------
+TASK: Build: clean
+TIME_UTC: Сб 03 янв 2026 16:50:49 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc cd '/opt/vpn-service/VpnService' && dotnet clean
+bash: line 1: cd: /opt/vpn-service/VpnService: No such file or directory
+
+-------------------------------------------
+TASK: Build: remove bin/obj
+TIME_UTC: Сб 03 янв 2026 16:50:49 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc cd '/opt/vpn-service/VpnService' && find . -type d \( -name bin -o -name obj \) -prune -exec rm -rf {} +
+bash: line 1: cd: /opt/vpn-service/VpnService: No such file or directory
+
+-------------------------------------------
+TASK: Build: restore
+TIME_UTC: Сб 03 янв 2026 16:50:49 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc cd '/opt/vpn-service/VpnService' && dotnet restore
+bash: line 1: cd: /opt/vpn-service/VpnService: No such file or directory
+
+-------------------------------------------
+TASK: Build: build Debug
+TIME_UTC: Сб 03 янв 2026 16:50:49 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc cd '/opt/vpn-service/VpnService' && dotnet build -c Debug
+bash: line 1: cd: /opt/vpn-service/VpnService: No such file or directory
+
