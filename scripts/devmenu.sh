@@ -6,13 +6,12 @@ set -Eeuo pipefail
 # ============================================================
 
 # ---------- Config (override via env) ----------
-export PROJ="${PROJ:-/opt/vpn-service/VpnService}"
 export API_URL="${API_URL:-http://localhost:5272}"
 export IFACE="${IFACE:-wg1}"
 
 # Repo root resolved relative to this script (works from any CWD)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+export PROJ="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Reports inside Git repo (override via env)
 export REPORT_DIR="${REPORT_DIR:-$REPO_ROOT/reports}"
