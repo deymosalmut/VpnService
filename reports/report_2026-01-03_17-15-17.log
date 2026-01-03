@@ -1,0 +1,246 @@
+-------------------------------------------
+TASK: Build: dotnet --info (top)
+TIME_UTC: Сб 03 янв 2026 17:15:17 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc dotnet --info | sed -n '1,25p'
+ПАКЕТ SDK ДЛЯ .NET:
+ Version:           9.0.203
+ Commit:            dc7acfa194
+ Workload version:  9.0.200-manifests.9df47798
+ MSBuild version:   17.13.20+a4ef1e90f
+
+Среда выполнения:
+ OS Name:     ubuntu
+ OS Version:  24.04
+ OS Platform: Linux
+ RID:         linux-x64
+ Base Path:   /usr/share/dotnet/sdk/9.0.203/
+
+Установленные рабочие нагрузки .NET:
+Нет установленных рабочих нагрузок для отображения.
+Настроено на использование loose manifests при установке новых манифестов.
+
+Host:
+  Version:      9.0.4
+  Architecture: x64
+  Commit:       f57e6dc747
+
+.NET SDKs installed:
+  8.0.416 [/usr/share/dotnet/sdk]
+  9.0.203 [/usr/share/dotnet/sdk]
+
+-------------------------------------------
+TASK: Build: clean
+TIME_UTC: Сб 03 янв 2026 17:15:17 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc cd '/opt/vpn-service' && dotnet clean
+Сборка начата 03.01.2026 17:15:18.
+     1>Проект "/opt/vpn-service/VpnService.sln" в узле 1 (целевые объекты Clean).
+     1>ValidateSolutionConfiguration:
+         Создание конфигурации решения "Debug|Any CPU".
+     1>Проект "/opt/vpn-service/VpnService.sln" (1) выполняет сборку "/opt/vpn-service/VpnService.Application/VpnService.Application.csproj" (2) в узле 4 (целевые объекты Clean).
+     2>CoreClean:
+         Файл "/opt/vpn-service/VpnService.Application/bin/Debug/net9.0/VpnService.Application.deps.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/bin/Debug/net9.0/VpnService.Application.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/bin/Debug/net9.0/VpnService.Application.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/bin/Debug/net9.0/VpnService.Domain.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/bin/Debug/net9.0/VpnService.Domain.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/obj/Debug/net9.0/VpnService.Application.csproj.AssemblyReference.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/obj/Debug/net9.0/VpnService.Application.GeneratedMSBuildEditorConfig.editorconfig" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/obj/Debug/net9.0/VpnService.Application.AssemblyInfoInputs.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/obj/Debug/net9.0/VpnService.Application.AssemblyInfo.cs" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/obj/Debug/net9.0/VpnService.Application.csproj.CoreCompileInputs.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/obj/Debug/net9.0/VpnService.Application.sourcelink.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/obj/Debug/net9.0/VpnServi.9E800F34.Up2Date" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/obj/Debug/net9.0/VpnService.Application.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/obj/Debug/net9.0/refint/VpnService.Application.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/obj/Debug/net9.0/VpnService.Application.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Application/obj/Debug/net9.0/ref/VpnService.Application.dll" удаляется.
+     1>Проект "/opt/vpn-service/VpnService.sln" (1) выполняет сборку "/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj" (3) в узле 2 (целевые объекты Clean).
+     3>CoreClean:
+         Файл "/opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Infrastructure.deps.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Infrastructure.runtimeconfig.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Infrastructure.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Infrastructure.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Application.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Domain.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Domain.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Application.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/VpnService.Infrastructure.csproj.AssemblyReference.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/VpnService.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/VpnService.Infrastructure.AssemblyInfoInputs.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/VpnService.Infrastructure.AssemblyInfo.cs" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/VpnService.Infrastructure.csproj.CoreCompileInputs.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/VpnService.Infrastructure.sourcelink.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/VpnServi.5AA738CD.Up2Date" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/VpnService.Infrastructure.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/refint/VpnService.Infrastructure.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/VpnService.Infrastructure.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/VpnService.Infrastructure.genruntimeconfig.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure/obj/Debug/net9.0/ref/VpnService.Infrastructure.dll" удаляется.
+     1>Проект "/opt/vpn-service/VpnService.sln" (1) выполняет сборку "/opt/vpn-service/VpnService.Api/VpnService.Api.csproj" (4) в узле 3 (целевые объекты Clean).
+     4>CoreClean:
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/appsettings.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Api.staticwebassets.endpoints.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Api" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Api.deps.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Api.runtimeconfig.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Api.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Api.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.AspNetCore.OpenApi.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.EntityFrameworkCore.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.EntityFrameworkCore.Abstractions.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.EntityFrameworkCore.InMemory.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.EntityFrameworkCore.Relational.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.Extensions.DependencyModel.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.IdentityModel.Abstractions.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.IdentityModel.JsonWebTokens.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.IdentityModel.Logging.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.IdentityModel.Protocols.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.IdentityModel.Protocols.OpenIdConnect.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.IdentityModel.Tokens.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Microsoft.OpenApi.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Npgsql.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Npgsql.EntityFrameworkCore.PostgreSQL.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Serilog.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Serilog.AspNetCore.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Serilog.Extensions.Hosting.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Serilog.Extensions.Logging.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Serilog.Formatting.Compact.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Serilog.Settings.Configuration.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Serilog.Sinks.Console.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Serilog.Sinks.Debug.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Serilog.Sinks.File.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Swashbuckle.AspNetCore.Swagger.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Swashbuckle.AspNetCore.SwaggerGen.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/Swashbuckle.AspNetCore.SwaggerUI.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/System.IdentityModel.Tokens.Jwt.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Application.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Domain.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Infrastructure.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Domain.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Application.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Infrastructure.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnService.Api.csproj.AssemblyReference.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnService.Api.GeneratedMSBuildEditorConfig.editorconfig" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnService.Api.AssemblyInfoInputs.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnService.Api.AssemblyInfo.cs" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnService.Api.csproj.CoreCompileInputs.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnService.Api.MvcApplicationPartsAssemblyInfo.cs" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnService.Api.MvcApplicationPartsAssemblyInfo.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnService.Api.sourcelink.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/staticwebassets.build.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/staticwebassets.build.endpoints.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/staticwebassets/msbuild.build.VpnService.Api.props" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/staticwebassets/msbuild.buildMultiTargeting.VpnService.Api.props" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/staticwebassets/msbuild.buildTransitive.VpnService.Api.props" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnServi.289927BD.Up2Date" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnService.Api.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/refint/VpnService.Api.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnService.Api.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/VpnService.Api.genruntimeconfig.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Api/obj/Debug/net9.0/ref/VpnService.Api.dll" удаляется.
+     1>Проект "/opt/vpn-service/VpnService.sln" (1) выполняет сборку "/opt/vpn-service/VpnService.Domain/VpnService.Domain.csproj" (5:4) в узле 4 (целевые объекты Clean).
+     5>CoreClean:
+         Файл "/opt/vpn-service/VpnService.Domain/bin/Debug/net9.0/VpnService.Domain.deps.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Domain/bin/Debug/net9.0/VpnService.Domain.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Domain/bin/Debug/net9.0/VpnService.Domain.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Domain/obj/Debug/net9.0/VpnService.Domain.GeneratedMSBuildEditorConfig.editorconfig" удаляется.
+         Файл "/opt/vpn-service/VpnService.Domain/obj/Debug/net9.0/VpnService.Domain.AssemblyInfoInputs.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Domain/obj/Debug/net9.0/VpnService.Domain.AssemblyInfo.cs" удаляется.
+         Файл "/opt/vpn-service/VpnService.Domain/obj/Debug/net9.0/VpnService.Domain.csproj.CoreCompileInputs.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Domain/obj/Debug/net9.0/VpnService.Domain.sourcelink.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Domain/obj/Debug/net9.0/VpnService.Domain.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Domain/obj/Debug/net9.0/refint/VpnService.Domain.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Domain/obj/Debug/net9.0/VpnService.Domain.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Domain/obj/Debug/net9.0/ref/VpnService.Domain.dll" удаляется.
+     5>Сборка проекта "/opt/vpn-service/VpnService.Domain/VpnService.Domain.csproj" завершена (целевые объекты Clean).
+     1>Проект "/opt/vpn-service/VpnService.sln" (1) выполняет сборку "/opt/vpn-service/VpnService.Infrastructure.Abstractions/VpnService.Infrastructure.Abstractions.csproj" (6) в узле 1 (целевые объекты Clean).
+     6>CoreClean:
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.deps.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/bin/Debug/net9.0/VpnService.Domain.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/bin/Debug/net9.0/VpnService.Domain.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/obj/Debug/net9.0/VpnService.Infrastructure.Abstractions.csproj.AssemblyReference.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/obj/Debug/net9.0/VpnService.Infrastructure.Abstractions.GeneratedMSBuildEditorConfig.editorconfig" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/obj/Debug/net9.0/VpnService.Infrastructure.Abstractions.AssemblyInfoInputs.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/obj/Debug/net9.0/VpnService.Infrastructure.Abstractions.AssemblyInfo.cs" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/obj/Debug/net9.0/VpnService.Infrastructure.Abstractions.csproj.CoreCompileInputs.cache" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/obj/Debug/net9.0/VpnService.Infrastructure.Abstractions.sourcelink.json" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/obj/Debug/net9.0/VpnServi.C003FADF.Up2Date" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/obj/Debug/net9.0/VpnService.Infrastructure.Abstractions.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/obj/Debug/net9.0/refint/VpnService.Infrastructure.Abstractions.dll" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/obj/Debug/net9.0/VpnService.Infrastructure.Abstractions.pdb" удаляется.
+         Файл "/opt/vpn-service/VpnService.Infrastructure.Abstractions/obj/Debug/net9.0/ref/VpnService.Infrastructure.Abstractions.dll" удаляется.
+     6>Сборка проекта "/opt/vpn-service/VpnService.Infrastructure.Abstractions/VpnService.Infrastructure.Abstractions.csproj" завершена (целевые объекты Clean).
+     3>Сборка проекта "/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj" завершена (целевые объекты Clean).
+     4>Сборка проекта "/opt/vpn-service/VpnService.Api/VpnService.Api.csproj" завершена (целевые объекты Clean).
+     2>Сборка проекта "/opt/vpn-service/VpnService.Application/VpnService.Application.csproj" завершена (целевые объекты Clean).
+     1>Сборка проекта "/opt/vpn-service/VpnService.sln" завершена (целевые объекты Clean).
+
+Сборка успешно завершена.
+    Предупреждений: 0
+    Ошибок: 0
+
+Прошло времени 00:00:01.32
+
+-------------------------------------------
+TASK: Build: remove bin/obj
+TIME_UTC: Сб 03 янв 2026 17:15:19 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc cd '/opt/vpn-service' && find . -type d \( -name bin -o -name obj \) -prune -exec rm -rf {} +
+
+-------------------------------------------
+TASK: Build: restore
+TIME_UTC: Сб 03 янв 2026 17:15:19 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc cd '/opt/vpn-service' && dotnet restore
+  Определение проектов для восстановления...
+  Восстановлен /opt/vpn-service/VpnService.Infrastructure.Abstractions/VpnService.Infrastructure.Abstractions.csproj (за 317 мс).
+  Восстановлен /opt/vpn-service/VpnService.Domain/VpnService.Domain.csproj (за 319 мс).
+  Восстановлен /opt/vpn-service/VpnService.Application/VpnService.Application.csproj (за 7 мс).
+  Восстановлен /opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj (за 619 мс).
+  Восстановлен /opt/vpn-service/VpnService.Api/VpnService.Api.csproj (за 619 мс).
+
+-------------------------------------------
+TASK: Build: build Debug
+TIME_UTC: Сб 03 янв 2026 17:15:22 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc cd '/opt/vpn-service' && dotnet build -c Debug
+  Определение проектов для восстановления...
+  Все проекты обновлены для восстановления.
+  VpnService.Domain -> /opt/vpn-service/VpnService.Domain/bin/Debug/net9.0/VpnService.Domain.dll
+  VpnService.Infrastructure.Abstractions -> /opt/vpn-service/VpnService.Infrastructure.Abstractions/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.dll
+  VpnService.Application -> /opt/vpn-service/VpnService.Application/bin/Debug/net9.0/VpnService.Application.dll
+/opt/vpn-service/VpnService.Infrastructure/Repositories/RefreshTokenRepository.cs(35,23): warning CS1998: В данном асинхронном методе отсутствуют операторы await, поэтому метод будет выполняться синхронно. Воспользуйтесь оператором await для ожидания неблокирующих вызовов API или оператором await Task.Run(...) для выполнения связанных с ЦП заданий в фоновом потоке. [/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj]
+/opt/vpn-service/VpnService.Infrastructure/Repositories/PeerRepository.cs(57,23): warning CS1998: В данном асинхронном методе отсутствуют операторы await, поэтому метод будет выполняться синхронно. Воспользуйтесь оператором await для ожидания неблокирующих вызовов API или оператором await Task.Run(...) для выполнения связанных с ЦП заданий в фоновом потоке. [/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj]
+  VpnService.Infrastructure -> /opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Infrastructure.dll
+  VpnService.Api -> /opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Api.dll
+
+Сборка успешно завершена.
+
+/opt/vpn-service/VpnService.Infrastructure/Repositories/RefreshTokenRepository.cs(35,23): warning CS1998: В данном асинхронном методе отсутствуют операторы await, поэтому метод будет выполняться синхронно. Воспользуйтесь оператором await для ожидания неблокирующих вызовов API или оператором await Task.Run(...) для выполнения связанных с ЦП заданий в фоновом потоке. [/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj]
+/opt/vpn-service/VpnService.Infrastructure/Repositories/PeerRepository.cs(57,23): warning CS1998: В данном асинхронном методе отсутствуют операторы await, поэтому метод будет выполняться синхронно. Воспользуйтесь оператором await для ожидания неблокирующих вызовов API или оператором await Task.Run(...) для выполнения связанных с ЦП заданий в фоновом потоке. [/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj]
+    Предупреждений: 2
+    Ошибок: 0
+
+Прошло времени 00:00:04.73
+
