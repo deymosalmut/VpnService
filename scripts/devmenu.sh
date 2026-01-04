@@ -483,6 +483,7 @@ AutoCommit: $REPORT_GIT_COMMIT
 A) [Probe] Probe WG endpoints
 B) [Stage3.2] Dry-run reconcile (if endpoint exists)
 C) [Reports] Cleanup reports (keep last N)
+R) [Sync] Сбор отчета и отправка на Windows
 L) [Logs] List recent reports
 0) Exit
 ==========================================
@@ -726,6 +727,41 @@ while true; do
         git push origin "$BR" || { git pull --rebase origin "$BR"; git push origin "$BR"; }
       } 2>&1 | tee -a "$report"
       pause
+      ;;
+    R)
+      # Quick audit file and push for Windows users
+      REPORT_FILE="$REPORT_DIR/audit_$(date +'%Y-%m-%d_%H-%M').txt"
+
+      header "Сбор отчета и отправка на Windows"
+
+      {
+        echo "=== ОТЧЕТ ОТ $(date) ==="
+        echo "Интерфейс: $IFACE"
+        echo "WG Dump (masked):"
+        wg show "$IFACE" dump 2>/dev/null | awk 'NR==1{$1="(hidden)"}1' || echo "wg dump failed"
+        echo -e "\nПоследние логи API:"
+        journalctl -u vpn-api --no-pager -n 20 2>/dev/null || echo "Logs not available"
+      } > "$REPORT_FILE" 2>&1
+
+      echo -e "${GREEN}Отчет создан: $REPORT_FILE${NC}"
+
+      # Git Automation
+      cd "$REPO_ROOT" || exit 1
+      git add -f "$REPORT_FILE" >/dev/null 2>&1 || true
+
+      if git diff --cached --quiet; then
+        echo "${YELLOW}Nothing staged for commit.${NC}"
+      else
+        git commit -m "Auto-report: $(date +'%H:%M')" || true
+
+        BR="$(git branch --show-current)"
+        echo "Синхронизация с сервером..."
+        git pull --rebase origin "$BR" || true
+        git push origin "$BR" || true
+        echo -e "${YELLOW}ГОТОВО. Теперь на Windows просто сделай 'git pull'${NC}"
+      fi
+
+      read -r -p "Нажмите Enter..." _ </dev/tty || true
       ;;
     L|l) list_reports; pause ;;
     0) exit 0 ;;
