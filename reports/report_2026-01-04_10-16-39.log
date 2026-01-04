@@ -1,0 +1,20 @@
+-------------------------------------------
+TASK: Route audit: WireGuard controllers/classes
+TIME_UTC: Вс 04 янв 2026 10:16:39 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc cd '/opt/vpn-service' && grep -R --line-number 'class .*WireGuard' VpnService.Api/Controllers || true
+VpnService.Api/Controllers/AdminWireGuardController.cs:12:public sealed class AdminWireGuardController : ControllerBase
+VpnService.Api/Controllers/V1/WireGuardAdminController.cs:12:    public class WireGuardAdminController : ControllerBase
+
+-------------------------------------------
+TASK: Route audit: wg routes
+TIME_UTC: Вс 04 янв 2026 10:16:39 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc cd '/opt/vpn-service' && { grep -R --line-number 'admin/wg/state' VpnService.Api/Controllers || true;                      grep -R --line-number '\[Route' VpnService.Api/Controllers | grep -i wg || true; }
+VpnService.Api/Controllers/AdminWireGuardController.cs:10:[Route("api/v1/admin/wg")]
+VpnService.Api/Controllers/V1/WireGuardAdminController.cs:10:    [Route("api/v1/admin/wg")]
+

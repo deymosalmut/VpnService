@@ -53,7 +53,5 @@ appsettings.Development.json
 Thumbs.db
 
 # Logs
-logs/
-*.log
 
 .fake

@@ -1,0 +1,15 @@
+-------------------------------------------
+TASK: Auth: health check
+TIME_UTC: Вс 04 янв 2026 09:48:05 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ curl -fsS http://localhost:5272/health
+Healthy
+-------------------------------------------
+TASK: Auth: login (get token)
+TIME_UTC: Вс 04 янв 2026 09:48:05 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+[0;31mERROR:[0m token is empty. Check credentials or /api/v1/auth/login.

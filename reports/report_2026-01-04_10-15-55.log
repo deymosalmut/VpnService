@@ -1,0 +1,21 @@
+-------------------------------------------
+TASK: WireGuard: wg show
+TIME_UTC: Вс 04 янв 2026 10:15:55 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ wg show
+interface: wg1
+  public key: ZYXEy5Xnr+8yTjisbjgyaLGzvDBqvPtcY6A/EFEAk0U=
+  private key: (hidden)
+  listening port: 51820
+
+-------------------------------------------
+TASK: WireGuard: wg show dump (masked, first 30 lines)
+TIME_UTC: Вс 04 янв 2026 10:15:55 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc wg show 'wg1' dump | awk 'NR==1{$1="(hidden)"}1' | head -n 30
+(hidden) ZYXEy5Xnr+8yTjisbjgyaLGzvDBqvPtcY6A/EFEAk0U= 51820 off
+

@@ -1,0 +1,16 @@
+-------------------------------------------
+TASK: API: start background
+TIME_UTC: Вс 04 янв 2026 08:29:33 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+Started API background PID=1240
+API stdout/stderr: /opt/vpn-service/reports/report_2026-01-04_08-29-33.log.api.out
+-------------------------------------------
+TASK: API: health probe
+TIME_UTC: Вс 04 янв 2026 08:29:33 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+[0;31mHealth: FAILED[0m (http://localhost:5272/health)
+Check: /opt/vpn-service/reports/report_2026-01-04_08-29-33.log.api.out
