@@ -24,3 +24,4 @@
 [10:16:22 INF] Executed action VpnService.Api.Controllers.AuthController.Login (VpnService.Api) in 197.1169ms
 [10:16:22 INF] Executed endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
 [10:16:22 INF] Request finished HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - 200 null application/json; charset=utf-8 226.8631ms
+[11:02:46 INF] Application is shutting down...

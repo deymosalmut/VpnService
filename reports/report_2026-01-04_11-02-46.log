@@ -1,0 +1,9 @@
+-------------------------------------------
+TASK: API: stop (PID=3405)
+TIME_UTC: Вс 04 янв 2026 11:02:46 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc kill 3405 >/dev/null 2>&1 || true
+
+Stopped.
