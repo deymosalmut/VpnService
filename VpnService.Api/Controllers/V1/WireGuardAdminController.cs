@@ -21,8 +21,19 @@ namespace VpnService.Api.Controllers.V1
         [HttpGet("state")]
         public async Task<IActionResult> GetState([FromQuery] string iface = "wg1", CancellationToken ct = default)
         {
-            var json = await _reader.ReadStateJsonAsync(iface, ct);
-            return Content(json, "application/json");
+            try
+            {
+                var json = await _reader.ReadStateJsonAsync(iface, ct);
+                return Content(json, "application/json");
+            }
+            catch (WireGuardInterfaceNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
         }
 
         [HttpGet("reconcile")]

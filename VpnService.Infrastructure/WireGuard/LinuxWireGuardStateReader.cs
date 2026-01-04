@@ -1,5 +1,10 @@
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
+using System.Globalization;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -10,14 +15,10 @@ namespace VpnService.Infrastructure.WireGuard;
 public sealed class LinuxWireGuardStateReader : IWireGuardStateReader
 {
     private readonly ILogger<LinuxWireGuardStateReader> _logger;
-    private readonly string _scriptPath;
 
-    public LinuxWireGuardStateReader(
-        ILogger<LinuxWireGuardStateReader> logger,
-        string scriptPath = "/opt/vpn-adapter/wg_dump.sh")
+    public LinuxWireGuardStateReader(ILogger<LinuxWireGuardStateReader> logger)
     {
         _logger = logger;
-        _scriptPath = scriptPath;
     }
 
     public async Task<string> ReadStateJsonAsync(string iface, CancellationToken ct = default)
@@ -25,21 +26,16 @@ public sealed class LinuxWireGuardStateReader : IWireGuardStateReader
         if (string.IsNullOrWhiteSpace(iface))
             throw new ArgumentException("iface is required", nameof(iface));
 
-        // Защита от инъекций: разрешаем только [a-zA-Z0-9_-]
         foreach (var ch in iface)
         {
             if (!(char.IsLetterOrDigit(ch) || ch is '_' or '-'))
-                throw new ArgumentException("iface содержит недопустимые символы", nameof(iface));
+                throw new ArgumentException("iface contains invalid characters", nameof(iface));
         }
-
-        if (!File.Exists(_scriptPath))
-            throw new FileNotFoundException($"wg adapter script not found: {_scriptPath}");
 
         var psi = new ProcessStartInfo
         {
-            FileName = "/bin/bash",
-            // Важно: без -c, чтобы не открывать shell-инъекции.
-            ArgumentList = { _scriptPath, iface },
+            FileName = "wg",
+            ArgumentList = { "show", iface, "dump" },
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -48,7 +44,15 @@ public sealed class LinuxWireGuardStateReader : IWireGuardStateReader
 
         using var proc = new Process { StartInfo = psi };
 
-        proc.Start();
+        try
+        {
+            proc.Start();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "wg executable not found or failed to start.");
+            throw new InvalidOperationException("wg not found");
+        }
 
         var stdoutTask = proc.StandardOutput.ReadToEndAsync(ct);
         var stderrTask = proc.StandardError.ReadToEndAsync(ct);
@@ -60,17 +64,165 @@ public sealed class LinuxWireGuardStateReader : IWireGuardStateReader
 
         if (proc.ExitCode != 0)
         {
-            _logger.LogError("wg_dump failed. iface={Iface} exit={Exit} err={Err}", iface, proc.ExitCode, stderr);
-            throw new InvalidOperationException($"wg_dump failed (exit={proc.ExitCode}): {stderr}");
+            if (IsInterfaceNotFound(stderr))
+                throw new WireGuardInterfaceNotFoundException(iface);
+
+            _logger.LogError("wg show dump failed. iface={Iface} exit={Exit} err={Err}", iface, proc.ExitCode, stderr);
+            throw new InvalidOperationException($"wg show dump failed (exit={proc.ExitCode}): {stderr}");
         }
 
-        // stdout должен быть JSON
-        if (string.IsNullOrWhiteSpace(stdout) || !stdout.StartsWith("{"))
+        if (string.IsNullOrWhiteSpace(stdout))
+            throw new WireGuardInterfaceNotFoundException(iface);
+
+        var lines = stdout.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length == 0)
+            throw new WireGuardInterfaceNotFoundException(iface);
+
+        var ifaceInfo = ParseInterfaceLine(lines[0], iface);
+        var peers = new List<WireGuardPeerDto>();
+
+        for (var i = 1; i < lines.Length; i++)
         {
-            _logger.LogWarning("wg_dump returned non-json. iface={Iface} out={Out}", iface, stdout);
-            throw new InvalidOperationException("wg_dump returned invalid json");
+            peers.Add(ParsePeerLine(lines[i], iface));
         }
 
-        return stdout;
+        var dto = new WireGuardStateDto
+        {
+            Iface = iface,
+            GeneratedAtUtc = DateTime.UtcNow,
+            Interface = ifaceInfo,
+            Peers = peers
+        };
+
+        return JsonSerializer.Serialize(dto);
+    }
+
+    private static bool IsInterfaceNotFound(string stderr)
+    {
+        if (string.IsNullOrWhiteSpace(stderr))
+            return false;
+
+        var message = stderr.ToLowerInvariant();
+        return message.Contains("no such device") ||
+               message.Contains("not found") ||
+               message.Contains("does not exist");
+    }
+
+    private static WireGuardInterfaceDto ParseInterfaceLine(string line, string iface)
+    {
+        var parts = line.Split('\t');
+        if (parts.Length < 3)
+            throw new InvalidOperationException($"wg dump invalid interface line for {iface}");
+
+        if (!int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var listenPort))
+            throw new InvalidOperationException($"wg dump invalid listen port for {iface}");
+
+        return new WireGuardInterfaceDto
+        {
+            PublicKey = parts[1],
+            ListenPort = listenPort
+        };
+    }
+
+    private static WireGuardPeerDto ParsePeerLine(string line, string iface)
+    {
+        var parts = line.Split('\t');
+        if (parts.Length < 8)
+            throw new InvalidOperationException($"wg dump invalid peer line for {iface}");
+
+        var presharedKeyRaw = parts[1];
+        var endpointRaw = parts[2];
+        var allowedIpsRaw = parts[3];
+        var latestHandshakeRaw = parts[4];
+        var rxRaw = parts[5];
+        var txRaw = parts[6];
+        var keepaliveRaw = parts[7];
+
+        if (!long.TryParse(latestHandshakeRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var latestHandshake))
+            throw new InvalidOperationException($"wg dump invalid latest handshake for {iface}");
+
+        if (!long.TryParse(rxRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var rxBytes))
+            throw new InvalidOperationException($"wg dump invalid rx bytes for {iface}");
+
+        if (!long.TryParse(txRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var txBytes))
+            throw new InvalidOperationException($"wg dump invalid tx bytes for {iface}");
+
+        int? persistentKeepalive = null;
+        if (!string.IsNullOrWhiteSpace(keepaliveRaw) && !string.Equals(keepaliveRaw, "off", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!int.TryParse(keepaliveRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var keepalive))
+                throw new InvalidOperationException($"wg dump invalid keepalive for {iface}");
+            persistentKeepalive = keepalive;
+        }
+
+        var allowedIps = string.IsNullOrWhiteSpace(allowedIpsRaw)
+            ? Array.Empty<string>()
+            : allowedIpsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(ip => ip.Trim()).ToArray();
+
+        var presharedKey = !string.IsNullOrWhiteSpace(presharedKeyRaw) && presharedKeyRaw != "(none)";
+        var endpoint = string.IsNullOrWhiteSpace(endpointRaw) || endpointRaw == "(none)" ? null : endpointRaw;
+
+        return new WireGuardPeerDto
+        {
+            PublicKey = parts[0],
+            PresharedKey = presharedKey,
+            Endpoint = endpoint,
+            AllowedIps = allowedIps,
+            LatestHandshakeEpoch = latestHandshake,
+            RxBytes = rxBytes,
+            TxBytes = txBytes,
+            PersistentKeepalive = persistentKeepalive
+        };
+    }
+
+    private sealed class WireGuardStateDto
+    {
+        [JsonPropertyName("iface")]
+        public string Iface { get; set; } = string.Empty;
+
+        [JsonPropertyName("generatedAtUtc")]
+        public DateTime GeneratedAtUtc { get; set; }
+
+        [JsonPropertyName("interface")]
+        public WireGuardInterfaceDto Interface { get; set; } = new();
+
+        [JsonPropertyName("peers")]
+        public List<WireGuardPeerDto> Peers { get; set; } = new();
+    }
+
+    private sealed class WireGuardInterfaceDto
+    {
+        [JsonPropertyName("publicKey")]
+        public string PublicKey { get; set; } = string.Empty;
+
+        [JsonPropertyName("listenPort")]
+        public int ListenPort { get; set; }
+    }
+
+    private sealed class WireGuardPeerDto
+    {
+        [JsonPropertyName("publicKey")]
+        public string PublicKey { get; set; } = string.Empty;
+
+        [JsonPropertyName("presharedKey")]
+        public bool PresharedKey { get; set; }
+
+        [JsonPropertyName("endpoint")]
+        public string? Endpoint { get; set; }
+
+        [JsonPropertyName("allowedIps")]
+        public string[] AllowedIps { get; set; } = Array.Empty<string>();
+
+        [JsonPropertyName("latestHandshakeEpoch")]
+        public long LatestHandshakeEpoch { get; set; }
+
+        [JsonPropertyName("rxBytes")]
+        public long RxBytes { get; set; }
+
+        [JsonPropertyName("txBytes")]
+        public long TxBytes { get; set; }
+
+        [JsonPropertyName("persistentKeepalive")]
+        public int? PersistentKeepalive { get; set; }
     }
 }
