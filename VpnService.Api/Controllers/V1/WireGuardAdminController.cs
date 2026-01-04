@@ -24,5 +24,16 @@ namespace VpnService.Api.Controllers.V1
             var json = await _reader.ReadStateJsonAsync(iface, ct);
             return Content(json, "application/json");
         }
+
+        [HttpGet("reconcile")]
+        public IActionResult Reconcile([FromQuery] string iface = "wg1", [FromQuery] string mode = "dry-run")
+        {
+            return Ok(new
+            {
+                iface,
+                summary = new { missing = 0, orphan = 0, drift = 0 },
+                details = new object[0]
+            });
+        }
     }
 }
