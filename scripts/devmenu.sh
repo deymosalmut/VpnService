@@ -7,6 +7,8 @@ set -Eeuo pipefail
 # ---------- Config (override via env) ----------
 export API_URL="${API_URL:-http://localhost:5272}"
 export IFACE="${IFACE:-wg1}"
+export ADMIN_USER="${ADMIN_USER:-admin}"
+export ADMIN_PASS="${ADMIN_PASS:-admin123}"
 
 # Resolve script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -139,6 +141,13 @@ api_start_bg() {
   log_block "API: start background" "$log"
   (
     cd "$PROJ"
+    # If port is already in use, do not start a second instance
+    if ss -ltnp 2>/dev/null | grep -q ":5272"; then
+      echo "${YELLOW}API port 5272 already in use. Not starting a second instance.${NC}" | tee -a "$log" >/dev/null
+      ss -ltnp | grep ":5272" | tee -a "$log" >/dev/null || true
+      return 0
+    fi
+
     nohup dotnet run --project VpnService.Api >"$api_out" 2>&1 &
     echo $! >"$PID_FILE"
   )
@@ -197,15 +206,14 @@ api_run_fg() {
 # ---------- Auth/token ----------
 get_token() {
   need curl
-  need python3
 
-  local login_json
-  login_json="$(curl -sS -X POST "$API_URL/api/v1/auth/login" \
+  local resp token
+  resp="$(curl -sS -X POST "$API_URL/api/v1/auth/login" \
     -H "Content-Type: application/json" \
-    -d '{"username":"admin","password":"admin123"}' || true)"
+    -d "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PASS\"}" || true)"
 
-  # Print accessToken or empty string
-  echo "$login_json" | python3 - <<'PY' 2>/dev/null || true
+  if command -v python3 >/dev/null 2>&1; then
+    token="$(printf '%s' "$resp" | python3 - <<'PY' 2>/dev/null || true
 import sys, json
 try:
     data = json.load(sys.stdin)
@@ -213,6 +221,100 @@ try:
 except Exception:
     print("")
 PY
+)"
+  else
+    # very small fallback (not perfect JSON parsing but OK for accessToken field)
+    token="$(printf '%s' "$resp" | sed -n 's/.*"accessToken"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p')"
+  fi
+
+  printf '%s' "$token"
+}
+
+auth_and_save_token() {
+  local log="$1"
+  need curl
+
+  run_and_log "Auth: health check" "$log" curl -fsS "$API_URL/health"
+
+  log_block "Auth: login (get token)" "$log"
+  local token
+  token="$(get_token)"
+
+  if [[ -z "${token:-}" ]]; then
+    echo "${RED}ERROR:${NC} token is empty. Check credentials or /api/v1/auth/login." | tee -a "$log" >/dev/null
+    return 1
+  fi
+
+  echo "$token" > "$LAST_TOKEN_FILE"
+  echo "Token saved: $LAST_TOKEN_FILE" | tee -a "$log" >/dev/null
+  echo "Token preview: ${token:0:25}..." | tee -a "$log" >/dev/null
+}
+
+probe_wg_endpoints() {
+  local log="$1"
+  need curl
+
+  if [[ ! -s "$LAST_TOKEN_FILE" ]]; then
+    echo "${YELLOW}No token file. Run Auth first.${NC}" | tee -a "$log" >/dev/null
+    return 1
+  fi
+
+  local token
+  token="$(cat "$LAST_TOKEN_FILE")"
+
+  log_block "Probe: WG endpoints" "$log"
+
+  local urls=(
+    "$API_URL/api/v1/admin/wg/state?iface=$IFACE"
+    "$API_URL/api/v1/admin/wg/state"
+    "$API_URL/api/v1/wg/state?iface=$IFACE"
+    "$API_URL/admin/wg/state?iface=$IFACE"
+    "$API_URL/api/v1/admin/wg/reconcile?iface=$IFACE&mode=dry-run"
+  )
+
+  local u code ok=0
+  for u in "${urls[@]}"; do
+    code="$(curl -sS -o /dev/null -w "%{http_code}" "$u" -H "Authorization: Bearer $token" || true)"
+    echo "GET $u -> HTTP $code" | tee -a "$log" >/dev/null
+    [[ "$code" == "200" ]] && ok=1
+  done
+
+  if [[ "$ok" == "0" ]]; then
+    echo "${YELLOW}No WG endpoint returned 200 yet. This is OK if not implemented in Stage 3.2 yet.${NC}" | tee -a "$log" >/dev/null
+  fi
+}
+
+stage32_dry_run() {
+  local log="$1"
+  need curl
+
+  if [[ ! -s "$LAST_TOKEN_FILE" ]]; then
+    echo "${YELLOW}No token file. Running Auth step first...${NC}" | tee -a "$log" >/dev/null
+    auth_and_save_token "$log" || return 1
+  fi
+
+  local token
+  token="$(cat "$LAST_TOKEN_FILE")"
+
+  # Try a likely reconcile endpoint first
+  local url="$API_URL/api/v1/admin/wg/reconcile?iface=$IFACE&mode=dry-run"
+
+  log_block "Stage 3.2: call reconcile dry-run" "$log"
+  echo "GET $url" | tee -a "$log" >/dev/null
+
+  local code
+  code="$(curl -sS -o "$REPORT_DIR/last_reconcile.json" -w "%{http_code}" \
+    "$url" -H "Authorization: Bearer $token" || true)"
+
+  echo "HTTP $code, saved: $REPORT_DIR/last_reconcile.json" | tee -a "$log" >/dev/null
+
+  if [[ "$code" != "200" ]]; then
+    echo "${YELLOW}Dry-run endpoint not available yet (HTTP $code). Implement it in API to complete Stage 3.2.${NC}" | tee -a "$log" >/dev/null
+    return 1
+  fi
+
+  # Show short preview
+  run_shell_and_log "Stage 3.2: reconcile preview (head)" "$log" "head -n 80 '$REPORT_DIR/last_reconcile.json'"
 }
 
 # ---------- Diagnostics ----------
@@ -240,7 +342,8 @@ wg_diag() {
 
   # wg show does not require sudo if already root; keep it clean
   run_and_log "WireGuard: wg show" "$log" wg show
-  run_shell_and_log "WireGuard: wg show dump (first 30 lines)" "$log" "wg show '$IFACE' dump | head -n 30"
+  run_shell_and_log "WireGuard: wg show dump (masked, first 30 lines)" "$log" \
+    "wg show '$IFACE' dump | awk 'NR==1{\$1=\"(hidden)\"}1' | head -n 30"
 }
 
 git_update() {
@@ -329,6 +432,9 @@ AutoCommit: $REPORT_GIT_COMMIT
 6) [API] API control (fg/bg/stop)
 7) [Smoke] API test (Auth + WG state)
 8) [Routes] Route audit (catch AmbiguousMatch)
+9) [Auth] Login and save token
+A) [Probe] Probe WG endpoints
+B) [Stage3.2] Dry-run reconcile (if endpoint exists)
 L) [Logs] List recent reports
 0) Exit
 ==========================================
@@ -431,6 +537,27 @@ while true; do
       route_audit "$report" || true
       echo "${GREEN}Report:${NC} $report"
       git_commit_report_if_enabled "$report" || true
+      pause
+      ;;
+    9)
+      report="$(report_name)"
+      header "Auth: login and save token. Report: $report"
+      auth_and_save_token "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    A|a)
+      report="$(report_name)"
+      header "Probe: WG endpoints. Report: $report"
+      probe_wg_endpoints "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    B|b)
+      report="$(report_name)"
+      header "Stage 3.2: dry-run reconcile. Report: $report"
+      stage32_dry_run "$report" || true
+      echo "${GREEN}Report:${NC} $report"
       pause
       ;;
     L|l) list_reports; pause ;;
