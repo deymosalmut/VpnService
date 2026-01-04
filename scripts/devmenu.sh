@@ -280,26 +280,23 @@ api_run_fg() {
 # ---------- Auth/token ----------
 get_token() {
   need curl
+  need jq
 
   local resp token
   resp="$(curl -sS -X POST "$API_URL/api/v1/auth/login" \
     -H "Content-Type: application/json" \
     -d "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PASS\"}" || true)"
+  printf '%s' "$resp" > "$REPORT_DIR/last_login_response.json"
   LAST_LOGIN_RESP="$resp"
 
-  if command -v python3 >/dev/null 2>&1; then
-    token="$(printf '%s' "$resp" | python3 - <<'PY' 2>/dev/null || true
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    print(data.get("accessToken",""))
-except Exception:
-    print("")
-PY
-)"
-  else
-    # very small fallback (not perfect JSON parsing but OK for accessToken field)
-    token="$(printf '%s' "$resp" | sed -n 's/.*"accessToken"[[:space:]]*:[[:space:]]*"\([^\"]*\)".*/\1/p')"
+  if [[ -z "${resp:-}" ]]; then
+    echo "${RED}ERROR:${NC} login response is empty." >&2
+    return 1
+  fi
+
+  token="$(jq -r '.accessToken // empty' "$REPORT_DIR/last_login_response.json" 2>/dev/null || true)"
+  if [[ -z "${token:-}" ]]; then
+    return 1
   fi
 
   printf '%s' "$token"
@@ -308,12 +305,15 @@ PY
 auth_and_save_token() {
   local log="$1"
   need curl
+  need jq
 
   run_and_log "Auth: health check" "$log" curl -fsS "$API_URL/health"
 
   log_block "Auth: login (get token)" "$log"
   local token
-  token="$(get_token)"
+  if ! token="$(get_token)"; then
+    token=""
+  fi
 
   if [[ -z "${token:-}" ]]; then
     echo "${RED}ERROR:${NC} token is empty. Check credentials or /api/v1/auth/login." | tee -a "$log" >/dev/null
@@ -324,6 +324,7 @@ auth_and_save_token() {
   echo "$token" > "$LAST_TOKEN_FILE"
   echo "Token saved: $LAST_TOKEN_FILE" | tee -a "$log" >/dev/null
   echo "Token preview: ${token:0:25}..." | tee -a "$log" >/dev/null
+  echo "Auth OK. Token saved." | tee -a "$log" >/dev/null
 }
 
 probe_wg_endpoints() {
