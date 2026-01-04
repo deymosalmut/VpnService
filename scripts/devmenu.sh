@@ -32,6 +32,8 @@ LAST_TOKEN_FILE="$REPORT_DIR/last_token.txt"
 # Optional behavior
 # If REPORT_GIT_COMMIT=1 -> auto-commit report file to current repo
 export REPORT_GIT_COMMIT="${REPORT_GIT_COMMIT:-0}"
+# If SKIP_PROMPTS=1 -> suppress pause prompts (for automation)
+export SKIP_PROMPTS="${SKIP_PROMPTS:-0}"
 
 # Colors (ASCII-only output still OK)
 RED=$'\033[0;31m'
@@ -47,6 +49,7 @@ need() {
 }
 
 pause() {
+  [[ "$SKIP_PROMPTS" == "1" ]] && return
   read -r -p "Press Enter to continue... " _ </dev/tty || true
 }
 
@@ -596,7 +599,44 @@ run_full_audit() {
   pause
 }
 
+# ---------- CLI (non-interactive) ----------
+handle_cli_mode() {
+  case "${1:-}" in
+    --full-audit)
+      SKIP_PROMPTS=1
+      run_full_audit
+      exit 0
+      ;;
+    --full-audit-push)
+      SKIP_PROMPTS=1
+      REPORT_GIT_COMMIT=1
+      run_full_audit
+      exit 0
+      ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: ./scripts/devmenu.sh [--full-audit] [--full-audit-push]
+
+Options:
+  --full-audit        Run the full audit once, write report, do not open menu.
+  --full-audit-push   Same as --full-audit, but also commit and push report
+                      (uses REPORT_GIT_COMMIT=1 internally).
+  --help              Show this message.
+
+Environment:
+  REPORT_GIT_COMMIT=1   Auto-commit/push reports when available.
+  SKIP_PROMPTS=1        Suppress pause prompts (set automatically for flags).
+EOF
+      exit 0
+      ;;
+    *)
+      ;;
+  esac
+}
+
 # ---------- Main loop ----------
+handle_cli_mode "$@"
+
 while true; do
   show_menu
   read -r -p "Select option: " opt </dev/tty || true
