@@ -9,6 +9,8 @@ export API_URL="${API_URL:-http://localhost:5272}"
 export IFACE="${IFACE:-wg1}"
 export ADMIN_USER="${ADMIN_USER:-admin}"
 export ADMIN_PASS="${ADMIN_PASS:-admin123}"
+export REPORT_KEEP="${REPORT_KEEP:-10}"
+export API_PORT="${API_PORT:-${API_URL##*:}}"
 
 # Resolve script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -116,6 +118,48 @@ git_commit_report_if_enabled() {
   fi
 }
 
+cleanup_reports_keep_last() {
+  local keep="${1:-$REPORT_KEEP}"
+
+  # Safety
+  [[ "$keep" =~ ^[0-9]+$ ]] || { echo "Cleanup: keep must be a number"; return 1; }
+  (( keep >= 1 )) || { echo "Cleanup: keep must be >= 1"; return 1; }
+
+  cd "$REPO_ROOT" || return 1
+
+  # Abort if working tree is dirty
+  if [[ -n "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null)" ]]; then
+    echo "Cleanup aborted: working tree is dirty. Commit or stash changes first." >&2
+    return 1
+  fi
+
+  # Collect reports sorted by mtime desc, delete everything after first N
+  mapfile -t reports < <(ls -1t reports/report_*.log 2>/dev/null || true)
+
+  if [[ "${#reports[@]}" -le "$keep" ]]; then
+    echo "Cleanup: nothing to delete (reports=${#reports[@]}, keep=$keep)."
+    return 0
+  fi
+
+  local to_delete=("${reports[@]:$keep}")
+
+  echo "Cleanup: keeping last $keep reports, deleting ${#to_delete[@]} old reports:"
+  printf ' - %s\n' "${to_delete[@]}"
+
+  rm -f "${to_delete[@]}"
+
+  # Stage deletions
+  git add -A reports/ >/dev/null 2>&1 || true
+
+  # Commit only if something staged
+  if ! git diff --cached --quiet; then
+    git commit -m "Cleanup reports: keep last $keep" >/dev/null 2>&1 || true
+    echo "Cleanup: committed."
+  else
+    echo "Cleanup: no staged changes."
+  fi
+}
+
 # ---------- API process helpers ----------
 api_running() {
   [[ -f "$PID_FILE" ]] || return 1
@@ -142,9 +186,9 @@ api_start_bg() {
   (
     cd "$PROJ"
     # If port is already in use, do not start a second instance
-    if ss -ltnp 2>/dev/null | grep -q ":5272"; then
-      echo "${YELLOW}API port 5272 already in use. Not starting a second instance.${NC}" | tee -a "$log" >/dev/null
-      ss -ltnp | grep ":5272" | tee -a "$log" >/dev/null || true
+    if ss -ltnp 2>/dev/null | grep -q ":$API_PORT"; then
+      echo "${YELLOW}API port $API_PORT already in use. Not starting a second instance.${NC}" | tee -a "$log" >/dev/null
+      ss -ltnp | grep ":$API_PORT" | tee -a "$log" >/dev/null || true
       return 0
     fi
 
@@ -435,6 +479,7 @@ AutoCommit: $REPORT_GIT_COMMIT
 9) [Auth] Login and save token
 A) [Probe] Probe WG endpoints
 B) [Stage3.2] Dry-run reconcile (if endpoint exists)
+C) [Reports] Cleanup reports (keep last N)
 L) [Logs] List recent reports
 0) Exit
 ==========================================
@@ -467,19 +512,87 @@ EOF
 }
 
 run_full_audit() {
-  local report
-  report="$(report_name)"
-  header "Running full audit. Report: $report"
+  local REPORT_NAME REPORT_PATH
+  REPORT_NAME="report_$(date -u +'%Y-%m-%d_%H-%M-%S').log"
+  REPORT_PATH="$REPORT_DIR/$REPORT_NAME"
 
-  system_diag "$report" || true
-  wg_diag "$report" || true
-  git_update "$report" || true
-  build_check "$report" || true
-  route_audit "$report" || true
-  smoke_auth_and_state "$report" || true
+  header "Full audit"
+  echo "Report: $REPORT_PATH"
 
-  echo "${GREEN}Report created:${NC} $report"
-  git_commit_report_if_enabled "$report" || true
+  mkdir -p "$REPORT_DIR"
+
+  {
+    echo "=== VPN SERVICE AUDIT REPORT ==="
+    echo "TIME_UTC: $(date -u)"
+    echo "HOST: $(hostname)"
+    echo "USER: $(whoami)"
+    echo "REPO_ROOT: $REPO_ROOT"
+    echo "API_URL: $API_URL"
+    echo "IFACE: $IFACE"
+    echo
+
+    echo "=== SYSTEM ==="
+    uname -a
+    echo
+    ip -br a
+    echo
+    ip r
+    echo
+
+    echo "=== WIREGUARD (SAFE) ==="
+    wg show || true
+    echo
+
+    echo "=== WIREGUARD DUMP (MASKED) ==="
+    wg show "$IFACE" dump 2>/dev/null | awk 'NR==1{$1="(hidden)"}1' || echo "wg dump failed"
+    echo
+
+    echo "=== API HEALTH ==="
+    curl -sS "$API_URL/health" || echo "API is DOWN"
+    echo
+
+    echo "=== ROUTE AUDIT (WG) ==="
+    if [[ -d "$REPO_ROOT/VpnService.Api/Controllers" ]]; then
+      grep -R --line-number "admin/wg/state" "$REPO_ROOT/VpnService.Api/Controllers" || true
+      grep -R --line-number "wg" "$REPO_ROOT/VpnService.Api/Controllers" || true
+    else
+      echo "Controllers directory not found: $REPO_ROOT/VpnService.Api/Controllers"
+    fi
+    echo
+  } > "$REPORT_PATH" 2>&1
+
+  echo "${GREEN}Report created:${NC} $REPORT_PATH"
+
+  # If REPORT_GIT_COMMIT enabled, commit, cleanup and push. Otherwise skip VCS actions.
+  if [[ "$REPORT_GIT_COMMIT" == "1" ]]; then
+    cd "$REPO_ROOT" || return 1
+
+    # Always add report even if reports/ is ignored
+    git add -f "reports/$REPORT_NAME" "reports/.gitkeep" >/dev/null 2>&1 || true
+
+    if git diff --cached --quiet; then
+      echo "${YELLOW}Nothing staged for commit. Check .gitignore and report path.${NC}"
+    else
+      git commit -m "Diagnostic report: $REPORT_NAME"
+
+      # Cleanup old reports and COMMIT deletions
+      cleanup_reports_keep_last "$REPORT_KEEP" || true
+
+      # Push with rebase fallback
+      BR="$(git branch --show-current)"
+      if git push origin "$BR"; then
+        echo "${GREEN}Pushed to Git. On Windows: git pull -> open reports/.${NC}"
+      else
+        echo "${YELLOW}Push failed. Trying pull --rebase then push...${NC}"
+        git pull --rebase origin "$BR" || true
+        git push origin "$BR" || true
+        echo "${GREEN}Pushed to Git. On Windows: git pull -> open reports/.${NC}"
+      fi
+    fi
+  else
+    echo "${YELLOW}REPORT_GIT_COMMIT=0 — skipping commit/cleanup/push.${NC}"
+  fi
+
   pause
 }
 
@@ -489,7 +602,9 @@ while true; do
   read -r -p "Select option: " opt </dev/tty || true
 
   case "$opt" in
-    1) run_full_audit ;;
+    1)
+      run_full_audit
+      ;;
     2)
       report="$(report_name)"
       header "Running system diagnostics. Report: $report"
@@ -558,6 +673,18 @@ while true; do
       header "Stage 3.2: dry-run reconcile. Report: $report"
       stage32_dry_run "$report" || true
       echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    C|c)
+      report="$(report_name)"
+      header "Cleanup reports (keep last $REPORT_KEEP). Report: $report"
+      {
+        echo "Cleanup keep=$REPORT_KEEP"
+        cd "$REPO_ROOT" || exit 1
+        cleanup_reports_keep_last "$REPORT_KEEP"
+        BR="$(git branch --show-current)"
+        git push origin "$BR" || { git pull --rebase origin "$BR"; git push origin "$BR"; }
+      } 2>&1 | tee -a "$report"
       pause
       ;;
     L|l) list_reports; pause ;;
