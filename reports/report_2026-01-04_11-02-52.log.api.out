@@ -41,3 +41,16 @@
 [11:03:50 INF] Executed action VpnService.Api.Controllers.AuthController.Login (VpnService.Api) in 32.0009ms
 [11:03:50 INF] Executed endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
 [11:03:50 INF] Request finished HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - 200 null application/json; charset=utf-8 35.0468ms
+[11:30:30 INF] Request starting HTTP/1.1 GET http://localhost:5272/health - null null
+[11:30:30 INF] Executing endpoint 'Health checks'
+[11:30:30 INF] Executed endpoint 'Health checks'
+[11:30:30 INF] Request finished HTTP/1.1 GET http://localhost:5272/health - 200 null text/plain 1.8929ms
+[11:30:30 INF] Request starting HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - application/json 42
+[11:30:30 INF] Executing endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
+[11:30:30 INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[VpnService.Application.DTOs.AuthLoginResponse]] Login(VpnService.Application.DTOs.AuthLoginRequest) on controller VpnService.Api.Controllers.AuthController (VpnService.Api).
+[11:30:30 INF] Saved 1 entities to in-memory store.
+[11:30:30 INF] User logged in: admin
+[11:30:30 INF] Executing OkObjectResult, writing value of type 'VpnService.Application.DTOs.AuthLoginResponse'.
+[11:30:30 INF] Executed action VpnService.Api.Controllers.AuthController.Login (VpnService.Api) in 5.481ms
+[11:30:30 INF] Executed endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
+[11:30:30 INF] Request finished HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - 200 null application/json; charset=utf-8 7.0759ms
