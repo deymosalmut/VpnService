@@ -60,3 +60,4 @@
 [11:45:20 INF] Request starting HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/reconcile?iface=wg1&mode=dry-run - null null
 [11:45:20 INF] Request finished HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/reconcile?iface=wg1&mode=dry-run - 404 0 null 3.2673ms
 [11:45:20 INF] Request reached the end of the middleware pipeline without being handled by application code. Request path: GET http://localhost:5272/api/v1/admin/wg/reconcile, Response status code: 404
+[11:46:42 INF] Application is shutting down...

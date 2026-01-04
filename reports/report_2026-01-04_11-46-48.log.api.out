@@ -1,0 +1,24 @@
+Используются параметры запуска из VpnService.Api/Properties/launchSettings.json...
+Сборка…
+/opt/vpn-service/VpnService.Infrastructure/Repositories/RefreshTokenRepository.cs(35,23): warning CS1998: В данном асинхронном методе отсутствуют операторы await, поэтому метод будет выполняться синхронно. Воспользуйтесь оператором await для ожидания неблокирующих вызовов API или оператором await Task.Run(...) для выполнения связанных с ЦП заданий в фоновом потоке. [/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj]
+/opt/vpn-service/VpnService.Infrastructure/Repositories/PeerRepository.cs(57,23): warning CS1998: В данном асинхронном методе отсутствуют операторы await, поэтому метод будет выполняться синхронно. Воспользуйтесь оператором await для ожидания неблокирующих вызовов API или оператором await Task.Run(...) для выполнения связанных с ЦП заданий в фоновом потоке. [/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj]
+[11:47:00 INF] Saved 0 entities to in-memory store.
+[11:47:00 INF] In-memory database created successfully
+[11:47:00 INF] VPN Service starting...
+[11:47:00 INF] User profile is available. Using '/root/.aspnet/DataProtection-Keys' as key repository; keys will not be encrypted at rest.
+[11:47:00 INF] Now listening on: http://localhost:5272
+[11:47:00 INF] Application started. Press Ctrl+C to shut down.
+[11:47:00 INF] Hosting environment: Development
+[11:47:00 INF] Content root path: /opt/vpn-service/VpnService.Api
+[11:47:01 INF] Request starting HTTP/1.1 GET http://localhost:5272/health - null null
+[11:47:01 WRN] Failed to determine the https port for redirect.
+[11:47:01 INF] Executing endpoint 'Health checks'
+[11:47:01 INF] Executed endpoint 'Health checks'
+[11:47:01 INF] Request finished HTTP/1.1 GET http://localhost:5272/health - 200 null text/plain 75.1351ms
+[11:47:11 INF] Request starting HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/reconcile?iface=wg1&mode=dry-run - null null
+[11:47:11 INF] Executing endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.Reconcile (VpnService.Api)'
+[11:47:11 INF] Route matched with {action = "Reconcile", controller = "WireGuardAdmin"}. Executing controller action with signature Microsoft.AspNetCore.Mvc.IActionResult Reconcile(System.String, System.String) on controller VpnService.Api.Controllers.V1.WireGuardAdminController (VpnService.Api).
+[11:47:11 INF] Executing OkObjectResult, writing value of type '<>f__AnonymousType2`3[[System.String, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[<>f__AnonymousType3`3[[System.Int32, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]], VpnService.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null],[System.Object[], System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+[11:47:11 INF] Executed action VpnService.Api.Controllers.V1.WireGuardAdminController.Reconcile (VpnService.Api) in 37.9588ms
+[11:47:11 INF] Executed endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.Reconcile (VpnService.Api)'
+[11:47:11 INF] Request finished HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/reconcile?iface=wg1&mode=dry-run - 200 null application/json; charset=utf-8 110.4738ms
