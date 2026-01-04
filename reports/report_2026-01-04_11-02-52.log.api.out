@@ -54,3 +54,6 @@
 [11:30:30 INF] Executed action VpnService.Api.Controllers.AuthController.Login (VpnService.Api) in 5.481ms
 [11:30:30 INF] Executed endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
 [11:30:30 INF] Request finished HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - 200 null application/json; charset=utf-8 7.0759ms
+[11:32:33 INF] Request starting HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/reconcile?iface=wg1&mode=dry-run - null null
+[11:32:33 INF] Request finished HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/reconcile?iface=wg1&mode=dry-run - 404 0 null 52.1873ms
+[11:32:33 INF] Request reached the end of the middleware pipeline without being handled by application code. Request path: GET http://localhost:5272/api/v1/admin/wg/reconcile, Response status code: 404
