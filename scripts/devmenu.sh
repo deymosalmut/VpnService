@@ -10,7 +10,10 @@ export IFACE="${IFACE:-wg1}"
 export ADMIN_USER="${ADMIN_USER:-admin}"
 export ADMIN_PASS="${ADMIN_PASS:-admin123}"
 export REPORT_KEEP="${REPORT_KEEP:-10}"
-export API_PORT="${API_PORT:-${API_URL##*:}}"
+if [[ -z "${API_PORT:-}" ]]; then
+  API_PORT="$(printf '%s' "$API_URL" | sed -n 's#.*://[^:/]*:\([0-9][0-9]*\).*#\1#p')"
+fi
+export API_PORT="${API_PORT:-5272}"
 
 # Resolve script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -189,9 +192,15 @@ api_start_bg() {
   (
     cd "$PROJ"
     # If port is already in use, do not start a second instance
-    if ss -ltnp 2>/dev/null | grep -q ":$API_PORT"; then
+    if port_in_use "$API_PORT"; then
       echo "${YELLOW}API port $API_PORT already in use. Not starting a second instance.${NC}" | tee -a "$log" >/dev/null
-      ss -ltnp | grep ":$API_PORT" | tee -a "$log" >/dev/null || true
+      if command -v ss >/dev/null 2>&1; then
+        ss -ltnp | grep ":$API_PORT" | tee -a "$log" >/dev/null || true
+      elif command -v lsof >/dev/null 2>&1; then
+        lsof -iTCP:"$API_PORT" -sTCP:LISTEN | tee -a "$log" >/dev/null || true
+      elif command -v netstat >/dev/null 2>&1; then
+        netstat -ltn | grep ":$API_PORT" | tee -a "$log" >/dev/null || true
+      fi
       return 0
     fi
 
@@ -204,10 +213,11 @@ api_start_bg() {
   echo "Started API background PID=$pid" | tee -a "$log" >/dev/null
   echo "API stdout/stderr: $api_out" | tee -a "$log" >/dev/null
 
-  # Health probe (retry up to ~10s)
+  # Health probe (retry up to 60s)
   log_block "API: health probe" "$log"
   local ok=0
-  for _ in {1..10}; do
+  for i in {1..60}; do
+    echo "Waiting for health... ($i/60)" | tee -a "$log" >/dev/null
     if curl -fsS "$API_URL/health" >/dev/null 2>&1; then ok=1; break; fi
     sleep 1
   done
@@ -219,6 +229,23 @@ api_start_bg() {
     echo "Check: $api_out" | tee -a "$log" >/dev/null
     return 1
   fi
+}
+
+port_in_use() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltnp 2>/dev/null | grep -q ":$port"
+    return $?
+  fi
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
+    return $?
+  fi
+  if command -v netstat >/dev/null 2>&1; then
+    netstat -ltn 2>/dev/null | grep -q ":$port"
+    return $?
+  fi
+  return 1
 }
 
 api_stop_bg() {
@@ -258,6 +285,7 @@ get_token() {
   resp="$(curl -sS -X POST "$API_URL/api/v1/auth/login" \
     -H "Content-Type: application/json" \
     -d "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PASS\"}" || true)"
+  LAST_LOGIN_RESP="$resp"
 
   if command -v python3 >/dev/null 2>&1; then
     token="$(printf '%s' "$resp" | python3 - <<'PY' 2>/dev/null || true
@@ -289,6 +317,7 @@ auth_and_save_token() {
 
   if [[ -z "${token:-}" ]]; then
     echo "${RED}ERROR:${NC} token is empty. Check credentials or /api/v1/auth/login." | tee -a "$log" >/dev/null
+    echo "Login response (first 300 chars): $(printf '%s' "$LAST_LOGIN_RESP" | head -c 300)" | tee -a "$log" >/dev/null
     return 1
   fi
 
@@ -440,6 +469,7 @@ smoke_auth_and_state() {
 
   if [[ -z "${token:-}" ]]; then
     echo "${RED}ERROR:${NC} access token is empty. Check /api/v1/auth/login and API logs." | tee -a "$log" >/dev/null
+    echo "Login response (first 300 chars): $(printf '%s' "$LAST_LOGIN_RESP" | head -c 300)" | tee -a "$log" >/dev/null
     echo "Hint: verify LoginRequest DTO and credentials." | tee -a "$log" >/dev/null
     return 1
   fi
