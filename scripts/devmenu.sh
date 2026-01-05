@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+export LANG=ru_RU.UTF-8
+export LC_ALL=ru_RU.UTF-8
 
 # ============================================================
 # VPN SERVICE DEV MENU + REPORTING (ENGLISH ONLY)
