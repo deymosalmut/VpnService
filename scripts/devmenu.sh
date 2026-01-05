@@ -46,7 +46,7 @@ fi
 export PG_PORT
 export PG_DB="${PG_DB:-vpnservice}"
 export PG_USER="${PG_USER:-vpnservice}"
-export PG_PASSWORD="${PG_PASSWORD:-vpnservice_pwd}"
+export PG_PASSWORD="${PG_PASSWORD:-2323}"
 export PG_ADMIN_USER="${PG_ADMIN_USER:-postgres}"
 export PG_VOLUME="${PG_VOLUME:-vpnservice_pgdata}"
 export PG_COMPOSE_FILE="${PG_COMPOSE_FILE:-$REPO_ROOT/infra/postgres/docker-compose.yml}"
