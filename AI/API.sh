@@ -1,2 +1,5 @@
-unset OPENAI_API_KEY
-export OPENAI_API_KEY="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"
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${OPENAI_API_KEY:?OPENAI_API_KEY is not set}"
+echo "OPENAI_API_KEY is set (length: ${#OPENAI_API_KEY})"
