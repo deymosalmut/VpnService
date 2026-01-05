@@ -44,6 +44,8 @@ Migrations/
 *.nuget.targets
 
 # Environment files
+.env
+infra/postgres/.env
 
 
 # OS

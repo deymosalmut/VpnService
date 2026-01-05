@@ -459,6 +459,7 @@ stage3233_check_all() {
 }
 
 # ---------- Postgres (Docker) ----------
+# Default host port is 5433 to avoid collisions. Set PG_PORT=5432 in infra/postgres/.env if desired.
 docker_ready() {
   local log="${1:-}"
   need docker
@@ -500,29 +501,81 @@ pg_require_files() {
   fi
 }
 
+pg_diag() {
+  local log="$1"
+  docker_ready "$log" || return 1
+  pg_require_files "$log" || return 1
+
+  run_shell_and_log "Postgres: ports 5432/5433 in use" "$log" \
+    "ss -lntp 2>/dev/null | { grep ':5432' || true; grep ':5433' || true; } || true"
+
+  run_and_log "Postgres: docker ps -a (filtered)" "$log" \
+    docker ps -a --filter "name=$PG_CONTAINER" --filter "name=postgres"
+
+  run_and_log "Postgres: docker compose config --services" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" config --services
+
+  run_and_log "Postgres: docker compose ps" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" ps
+
+  run_shell_and_log "Postgres: docker inspect state/health" "$log" \
+    "docker inspect --format '{{.State.Status}}/{{if .State.Health}}{{.State.Health.Status}}{{end}}' '$PG_CONTAINER' 2>/dev/null || true"
+
+  run_shell_and_log "Postgres: docker logs (tail 120)" "$log" \
+    "if docker ps -a --format '{{.Names}}' | grep -qx '$PG_CONTAINER'; then docker logs --tail 120 '$PG_CONTAINER'; else echo 'Container not found'; fi"
+}
+
+pg_wait_healthy() {
+  local log="$1" ok=0
+  local state health
+  for i in {1..60}; do
+    state="$(docker inspect --format='{{.State.Status}}' "$PG_CONTAINER" 2>/dev/null || true)"
+    health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$PG_CONTAINER" 2>/dev/null || true)"
+    echo "Waiting for Postgres health... ($i/60) state=${state:-unknown} health=${health:-unknown}" | tee -a "$log" >/dev/null
+    [[ "$health" == "healthy" ]] && ok=1 && break
+    sleep 1
+  done
+  [[ "$ok" == "1" ]]
+}
+
 pg_up() {
   local log="$1"
   docker_ready "$log" || return 1
   pg_require_files "$log" || return 1
 
   run_and_log "Postgres: docker compose up" "$log" \
-    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" up -d
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" up -d --remove-orphans
 
-  local status ok=0
-  for i in {1..60}; do
-    status="$(docker inspect --format='{{.State.Health.Status}}' "$PG_CONTAINER" 2>/dev/null || true)"
-    echo "Waiting for Postgres health... ($i/60) status=${status:-unknown}" | tee -a "$log" >/dev/null
-    [[ "$status" == "healthy" ]] && ok=1 && break
-    sleep 1
-  done
-
-  if [[ "$ok" == "1" ]]; then
+  if pg_wait_healthy "$log"; then
     echo "Postgres is healthy." | tee -a "$log" >/dev/null
-  else
-    echo "${RED}Postgres did not become healthy.${NC}" | tee -a "$log" >/dev/null
-    run_and_log "Postgres: docker logs (tail 120)" "$log" docker logs --tail 120 "$PG_CONTAINER" || true
-    return 1
+    return 0
   fi
+
+  echo "${YELLOW}Postgres did not become healthy. Running diagnostics...${NC}" | tee -a "$log" >/dev/null
+  pg_diag "$log" || true
+
+  run_and_log "Postgres: docker compose down (remediate)" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" down
+  run_and_log "Postgres: docker compose up (remediate)" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" up -d --remove-orphans
+
+  if pg_wait_healthy "$log"; then
+    echo "Postgres is healthy after remediation." | tee -a "$log" >/dev/null
+    return 0
+  fi
+
+  local state
+  state="$(docker inspect --format='{{.State.Status}}' "$PG_CONTAINER" 2>/dev/null || true)"
+  if [[ "$state" == "created" ]]; then
+    run_and_log "Postgres: docker start (remediate created)" "$log" docker start "$PG_CONTAINER" || true
+    if pg_wait_healthy "$log"; then
+      echo "Postgres is healthy after docker start." | tee -a "$log" >/dev/null
+      return 0
+    fi
+  fi
+
+  echo "${RED}Postgres failed to become healthy. See report: $log${NC}" | tee -a "$log" >/dev/null
+  return 1
 }
 
 pg_status() {
@@ -532,8 +585,14 @@ pg_status() {
 
   run_and_log "Postgres: docker compose ps" "$log" \
     docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" ps
-  run_and_log "Postgres: container status" "$log" \
-    docker inspect --format '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' "$PG_CONTAINER"
+  run_shell_and_log "Postgres: container status" "$log" \
+    "docker inspect --format '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' '$PG_CONTAINER' 2>/dev/null || true"
+  local state health
+  state="$(docker inspect --format='{{.State.Status}}' "$PG_CONTAINER" 2>/dev/null || true)"
+  health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$PG_CONTAINER" 2>/dev/null || true)"
+  if [[ "$state" != "running" || "$health" != "healthy" ]]; then
+    echo "Hint: Run P1 or see P3 logs / diagnostics." | tee -a "$log" >/dev/null
+  fi
 }
 
 pg_logs() {
@@ -692,6 +751,7 @@ P3) Postgres logs
 P4) Postgres psql
 P5) Postgres down
 P6) Print Postgres connection string
+P7) Postgres diagnostics
 ------------------------------------------
 [STAGES]
 S2) Stage 3.2 check (auth + reconcile)
@@ -958,6 +1018,13 @@ while true; do
       report="$(report_name)"
       header "Postgres connection string. Report: $report"
       pg_print_conn "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    P7|p7)
+      report="$(report_name)"
+      header "Postgres diagnostics. Report: $report"
+      pg_diag "$report" || true
       echo "${GREEN}Report:${NC} $report"
       pause
       ;;
