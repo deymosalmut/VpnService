@@ -1,0 +1,21 @@
+Используются параметры запуска из VpnService.Api/Properties/launchSettings.json...
+Сборка…
+/opt/vpn-service/VpnService.Infrastructure/Repositories/RefreshTokenRepository.cs(35,23): warning CS1998: В данном асинхронном методе отсутствуют операторы await, поэтому метод будет выполняться синхронно. Воспользуйтесь оператором await для ожидания неблокирующих вызовов API или оператором await Task.Run(...) для выполнения связанных с ЦП заданий в фоновом потоке. [/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj]
+/opt/vpn-service/VpnService.Infrastructure/Repositories/PeerRepository.cs(57,23): warning CS1998: В данном асинхронном методе отсутствуют операторы await, поэтому метод будет выполняться синхронно. Воспользуйтесь оператором await для ожидания неблокирующих вызовов API или оператором await Task.Run(...) для выполнения связанных с ЦП заданий в фоновом потоке. [/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj]
+[09:29:22 INF] Saved 0 entities to in-memory store.
+[09:29:23 INF] In-memory database created successfully
+[09:29:23 INF] VPN Service starting...
+[09:29:23 INF] User profile is available. Using '/root/.aspnet/DataProtection-Keys' as key repository; keys will not be encrypted at rest.
+[09:29:23 INF] Now listening on: http://localhost:5272
+[09:29:23 INF] Application started. Press Ctrl+C to shut down.
+[09:29:23 INF] Hosting environment: Development
+[09:29:23 INF] Content root path: /opt/vpn-service/VpnService.Api
+[09:29:24 INF] Request starting HTTP/1.1 GET http://localhost:5272/health - null null
+[09:29:24 WRN] Failed to determine the https port for redirect.
+[09:29:24 INF] Executing endpoint 'Health checks'
+[09:29:24 INF] Executed endpoint 'Health checks'
+[09:29:24 INF] Request finished HTTP/1.1 GET http://localhost:5272/health - 200 null text/plain 160.1647ms
+[09:29:31 INF] Request starting HTTP/1.1 GET http://localhost:5272/health - null null
+[09:29:31 INF] Executing endpoint 'Health checks'
+[09:29:31 INF] Executed endpoint 'Health checks'
+[09:29:31 INF] Request finished HTTP/1.1 GET http://localhost:5272/health - 200 null text/plain 7.5285ms
