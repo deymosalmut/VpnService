@@ -1,0 +1,29 @@
+-------------------------------------------
+TASK: DB: list databases
+TIME_UTC: Пн 05 янв 2026 13:15:19 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+DB_MODE=system
+PG_HOST=127.0.0.1
+PG_PORT=5432
+PG_DB=vpnservice
+PG_USER=vpnservice
+PG_PASSWORD=23***
+PG_ADMIN_USER=postgres
++ psql (admin) list databases
+-------------------------------------------
+TASK: DB: list databases (system)
+TIME_UTC: Пн 05 янв 2026 13:15:19 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ sudo -u postgres psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5432 -U postgres -Atc SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY 1;
+psql: ошибка: подключиться к серверу "127.0.0.1", порту 5432 не удалось: FATAL:  password authentication failed for user "postgres"
+подключиться к серверу "127.0.0.1", порту 5432 не удалось: FATAL:  password authentication failed for user "postgres"
+STATUS: 2
+
+
+ERROR
+DB action failed: db_list_dbs
+

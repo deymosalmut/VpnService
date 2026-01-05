@@ -1,0 +1,41 @@
+-------------------------------------------
+TASK: DB: status
+TIME_UTC: Пн 05 янв 2026 10:56:49 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+DB_MODE=system
+PG_HOST=127.0.0.1
+PG_PORT=5432
+PG_DB=vpnservice
+PG_USER=vpnservice
+PG_PASSWORD=vp***
+PG_ADMIN_USER=postgres
+-------------------------------------------
+TASK: DB: systemctl status postgresql
+TIME_UTC: Пн 05 янв 2026 10:56:49 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc systemctl is-active postgresql || systemctl status postgresql
+active
+
+-------------------------------------------
+TASK: DB: listener on 5432
+TIME_UTC: Пн 05 янв 2026 10:56:49 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc ss -lntp 2>/dev/null | grep ':5432'
+LISTEN 0      244        127.0.0.1:5432      0.0.0.0:*    users:(("postgres",pid=903,fd=6))                     
+LISTEN 0      244            [::1]:5432         [::]:*    users:(("postgres",pid=903,fd=5))                     
+
+-------------------------------------------
+TASK: DB: pg_isready
+TIME_UTC: Пн 05 янв 2026 10:56:49 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc pg_isready -h '127.0.0.1' -p '5432'
+127.0.0.1:5432 - принимает подключения
+

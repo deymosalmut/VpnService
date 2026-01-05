@@ -1,0 +1,11 @@
+-------------------------------------------
+TASK: DB: create database
+TIME_UTC: Пн 05 янв 2026 11:06:12 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+Target DB: vpnservice
+Owner: vpnservice
++ psql (admin) create database if missing
+psql: ошибка: подключиться к серверу "127.0.0.1", порту 5432 не удалось: FATAL:  password authentication failed for user "postgres"
+подключиться к серверу "127.0.0.1", порту 5432 не удалось: FATAL:  password authentication failed for user "postgres"
