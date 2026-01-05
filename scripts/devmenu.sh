@@ -999,10 +999,13 @@ db_ensure_bootstrap() {
   local log="$1"
   local mode
   mode="$(db_select_mode)"
+  local admin_user
+  admin_user="$PG_USER"
 
   log_block "DB: ensure role + database" "$log"
   {
     pg_conn_info "$mode" "$PG_PORT"
+    echo "Bootstrap user: $admin_user"
     echo "Role: $PG_USER"
     echo "Database: $PG_DB"
     echo "+ psql (admin) ensure role/db (password redacted)"
@@ -1010,7 +1013,7 @@ db_ensure_bootstrap() {
 
   if [[ "$mode" == "system" ]]; then
     {
-      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
+      PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
         -v ON_ERROR_STOP=1 -v role="$PG_USER" -v pwd="$PG_PASSWORD" -v db="$PG_DB" <<'SQL'
 DO $$
 BEGIN
@@ -1031,7 +1034,7 @@ SQL
   else
     docker_ready "$log" || return 1
     {
-      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
         -v ON_ERROR_STOP=1 -v role="$PG_USER" -v pwd="$PG_PASSWORD" -v db="$PG_DB" <<'SQL'
 DO $$
 BEGIN
