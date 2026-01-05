@@ -1012,7 +1012,7 @@ db_psql_shell() {
 
   if [[ "$mode" == "system" ]]; then
     run_step "DB: psql shell (system)" "$log" \
-      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres -d "$PG_DB" || return 1
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -d "$PG_DB" || return 1
   else
     docker_ready "$log" || return 1
     run_step "DB: psql shell (docker)" "$log" \
@@ -1034,7 +1034,7 @@ db_list_dbs() {
 
   if [[ "$mode" == "system" ]]; then
     run_step "DB: list databases (system)" "$log" \
-      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 \
       -Atc "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY 1;" || return 1
   else
     docker_ready "$log" || return 1
@@ -1066,12 +1066,12 @@ db_create_db() {
 
   if [[ "$mode" == "system" ]]; then
     db_exists="$(run_step_capture "DB: check database exists (system)" "$log" \
-      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 \
       -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")" || return 1
     db_exists="$(printf '%s' "$db_exists" | tr -d '\r' | tail -n 1)"
     if [[ "$db_exists" != "1" ]]; then
       run_step "DB: create database (system)" "$log" \
-        sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+        sudo -u postgres psql -v ON_ERROR_STOP=1 \
         -c "CREATE DATABASE \"$db_ident\" OWNER \"$owner_ident\";" || return 1
     fi
   else
@@ -1111,10 +1111,10 @@ db_drop_db() {
 
   if [[ "$mode" == "system" ]]; then
     run_step "DB: terminate connections (system)" "$log" \
-      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 \
       -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db_lit' AND pid <> pg_backend_pid();" || return 1
     run_step "DB: drop database (system)" "$log" \
-      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 \
       -c "DROP DATABASE IF EXISTS \"$db_ident\";" || return 1
   else
     docker_ready "$log" || return 1
@@ -1153,26 +1153,26 @@ db_ensure_bootstrap() {
   if [[ "$mode" == "system" ]]; then
     local role_exists db_exists
     role_exists="$(run_step_capture "DB: check role exists (system)" "$log" \
-      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 \
       -Atc "SELECT 1 FROM pg_roles WHERE rolname = '$role_lit' LIMIT 1;")" || return 1
     role_exists="$(printf '%s' "$role_exists" | tr -d '\r' | tail -n 1)"
     if [[ "$role_exists" == "1" ]]; then
       run_step "DB: alter role (system)" "$log" \
-        sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+        sudo -u postgres psql -v ON_ERROR_STOP=1 \
         -c "ALTER ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';" || return 1
     else
       run_step "DB: create role (system)" "$log" \
-        sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+        sudo -u postgres psql -v ON_ERROR_STOP=1 \
         -c "CREATE ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';" || return 1
     fi
 
     db_exists="$(run_step_capture "DB: check database exists (system)" "$log" \
-      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 \
       -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")" || return 1
     db_exists="$(printf '%s' "$db_exists" | tr -d '\r' | tail -n 1)"
     if [[ "$db_exists" != "1" ]]; then
       run_step "DB: create database (system)" "$log" \
-        sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+        sudo -u postgres psql -v ON_ERROR_STOP=1 \
         -c "CREATE DATABASE \"$db_ident\" OWNER \"$role_ident\";" || return 1
     fi
   else
@@ -1224,7 +1224,7 @@ db_list_tables() {
   if [[ "$mode" == "system" ]]; then
     local db_exists
     db_exists="$(run_step_capture "DB: check database exists (system)" "$log" \
-      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 \
       -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")" || return 1
     db_exists="$(printf '%s' "$db_exists" | tr -d '\r' | tail -n 1)"
     if [[ "$db_exists" != "1" ]]; then
@@ -1233,7 +1233,7 @@ db_list_tables() {
       return 1
     fi
     run_step "DB: list tables (system)" "$log" \
-      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres -d "$db" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -d "$db" \
       -Atc "SELECT schemaname || '.' || tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1;" || return 1
   else
     docker_ready "$log" || return 1
@@ -1276,7 +1276,7 @@ db_backup() {
 
   if [[ "$mode" == "system" ]]; then
     run_step "DB: pg_dump (system)" "$log" \
-      bash -lc "sudo -u postgres pg_dump -h '$PG_HOST' -p '$PG_PORT' -U postgres '$db' > '$backup'" || return 1
+      bash -lc "sudo -u postgres pg_dump '$db' > '$backup'" || return 1
   else
     run_step "DB: pg_dump (docker)" "$log" \
       bash -lc "docker exec -e PGPASSWORD='$PG_PASSWORD' '$PG_CONTAINER' pg_dump -U '$PG_USER' '$db' > '$backup'" || return 1
@@ -1318,7 +1318,7 @@ db_restore() {
 
   if [[ "$mode" == "system" ]]; then
     run_step "DB: restore (system)" "$log" \
-      bash -lc "sudo -u postgres psql -v ON_ERROR_STOP=1 -h '$PG_HOST' -p '$PG_PORT' -U postgres -d '$db' -f '$file'" || return 1
+      bash -lc "sudo -u postgres psql -v ON_ERROR_STOP=1 -d '$db' -f '$file'" || return 1
   else
     run_step "DB: restore (docker)" "$log" \
       bash -lc "docker exec -e PGPASSWORD='$PG_PASSWORD' -i '$PG_CONTAINER' psql -v ON_ERROR_STOP=1 -U '$PG_ADMIN_USER' -d '$db' < '$file'" || return 1
@@ -1338,7 +1338,7 @@ db_show_connections() {
 
   if [[ "$mode" == "system" ]]; then
     run_step "DB: active connections (system)" "$log" \
-      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 \
       -Atc "SELECT pid, usename, datname, client_addr, state, query_start FROM pg_stat_activity ORDER BY query_start DESC;" || return 1
   else
     docker_ready "$log" || return 1
@@ -1369,7 +1369,7 @@ db_kill_connections() {
 
   if [[ "$mode" == "system" ]]; then
     run_step "DB: kill connections (system)" "$log" \
-      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 \
       -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db_lit' AND pid <> pg_backend_pid();" || return 1
   else
     docker_ready "$log" || return 1
