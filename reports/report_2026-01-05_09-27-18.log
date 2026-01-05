@@ -1,0 +1,43 @@
+=== VPN SERVICE AUDIT REPORT ===
+TIME_UTC: Пн 05 янв 2026 09:27:18 UTC
+HOST: Vpn-Main
+USER: root
+REPO_ROOT: /opt/vpn-service
+API_URL: http://localhost:5272
+IFACE: wg1
+
+=== SYSTEM ===
+Linux Vpn-Main 6.8.0-90-generic #91-Ubuntu SMP PREEMPT_DYNAMIC Tue Nov 18 14:14:30 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+enp0s3           UP             10.0.2.15/24 metric 100 fd17:625c:f037:2:a00:27ff:febc:54a4/64 fe80::a00:27ff:febc:54a4/64 
+enp0s8           DOWN           
+wg1              UNKNOWN        10.0.0.1/24 
+docker0          DOWN           172.17.0.1/16 fe80::64cd:c9ff:fe80:e74e/64 
+
+default via 10.0.2.2 dev enp0s3 proto dhcp src 10.0.2.15 metric 100 
+1.1.1.1 via 10.0.2.2 dev enp0s3 proto dhcp src 10.0.2.15 metric 100 
+10.0.0.0/24 dev wg1 proto kernel scope link src 10.0.0.1 
+10.0.2.0/24 dev enp0s3 proto kernel scope link src 10.0.2.15 metric 100 
+10.0.2.2 dev enp0s3 proto dhcp scope link src 10.0.2.15 metric 100 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+192.168.1.1 via 10.0.2.2 dev enp0s3 proto dhcp src 10.0.2.15 metric 100 
+
+=== WIREGUARD (SAFE) ===
+interface: wg1
+  public key: ZYXEy5Xnr+8yTjisbjgyaLGzvDBqvPtcY6A/EFEAk0U=
+  private key: (hidden)
+  listening port: 51820
+
+=== WIREGUARD DUMP (MASKED) ===
+(hidden) ZYXEy5Xnr+8yTjisbjgyaLGzvDBqvPtcY6A/EFEAk0U= 51820 off
+
+=== API HEALTH ===
+curl: (7) Failed to connect to localhost port 5272 after 0 ms: Couldn't connect to server
+API is DOWN
+
+=== ROUTE AUDIT (WG) ===
+/opt/vpn-service/VpnService.Api/Controllers/V1/WireGuardAdminController.cs:10:    [Route("api/v1/admin/wg")]
+/opt/vpn-service/VpnService.Api/Controllers/V1/WireGuardAdminController.cs:22:        public async Task<IActionResult> GetState([FromQuery] string iface = "wg1", CancellationToken ct = default)
+/opt/vpn-service/VpnService.Api/Controllers/V1/WireGuardAdminController.cs:40:        public IActionResult Reconcile([FromQuery] string iface = "wg1", [FromQuery] string mode = "dry-run")
+
