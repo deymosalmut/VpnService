@@ -28,16 +28,28 @@ export PROJ="$REPO_ROOT"
 export REPORT_DIR="${REPORT_DIR:-$REPO_ROOT/reports}"
 mkdir -p "$REPORT_DIR"
 
-# ---------- Postgres (Docker) defaults (override via env) ----------
-# Compose/env expected at $PG_COMPOSE_FILE and $PG_ENV_FILE.
-export PG_CONTAINER="${PG_CONTAINER:-vpnservice-postgres}"
+# ---------- Postgres (DB) defaults (override via env) ----------
+export DB_MODE="${DB_MODE:-system}" # system|docker|auto
+export PG_HOST="${PG_HOST:-127.0.0.1}"
+PG_PORT_DEFAULTED=0
+if [[ -z "${PG_PORT:-}" ]]; then
+  PG_PORT_DEFAULTED=1
+  case "$DB_MODE" in
+    system) PG_PORT=5432 ;;
+    docker) PG_PORT=5433 ;;
+    auto) PG_PORT=5432 ;;
+    *) PG_PORT=5432 ;;
+  esac
+fi
+export PG_PORT
 export PG_DB="${PG_DB:-vpnservice}"
 export PG_USER="${PG_USER:-vpnservice}"
 export PG_PASSWORD="${PG_PASSWORD:-vpnservice_pwd}"
-export PG_PORT="${PG_PORT:-5432}"
+export PG_ADMIN_USER="${PG_ADMIN_USER:-postgres}"
 export PG_VOLUME="${PG_VOLUME:-vpnservice_pgdata}"
 export PG_COMPOSE_FILE="${PG_COMPOSE_FILE:-$REPO_ROOT/infra/postgres/docker-compose.yml}"
 export PG_ENV_FILE="${PG_ENV_FILE:-$REPO_ROOT/infra/postgres/.env}"
+export PG_CONTAINER="${PG_CONTAINER:-vpnservice-postgres}"
 
 # State files
 PID_FILE="$REPORT_DIR/api.pid"
@@ -133,6 +145,67 @@ git_commit_report_if_enabled() {
       git -C "$REPO_ROOT" commit -m "Add report $(basename "$report")" >/dev/null 2>&1 || true
     fi
   fi
+}
+
+auto_commit_report() {
+  local report="$1" context_tag="$2"
+  local report_rel branch
+
+  git_repo_root || {
+    echo "Auto-commit skipped: not a git repo. Report: $report"
+    return 1
+  }
+
+  if [[ -z "$report" || ! -f "$report" ]]; then
+    echo "Auto-commit skipped: report not found."
+    return 1
+  fi
+
+  if [[ "$report" == *"/infra/postgres/.env" || "$report" == *"infra/postgres/.env" ]]; then
+    echo "Auto-commit skipped: refusing to commit .env."
+    return 1
+  fi
+
+  if [[ "$report" == "$REPO_ROOT"* ]]; then
+    report_rel="${report#"$REPO_ROOT"/}"
+  else
+    echo "Auto-commit skipped: report not inside repo. Report: $report"
+    return 1
+  fi
+
+  git -C "$REPO_ROOT" add -f -- "$report_rel" >/dev/null 2>&1 || true
+
+  if git -C "$REPO_ROOT" diff --cached --quiet -- "$report_rel"; then
+    echo "Auto-commit skipped: nothing staged for $report_rel"
+    return 0
+  fi
+
+  git -C "$REPO_ROOT" commit -m "report: $context_tag $(basename "$report")" --only -- "$report_rel" >/dev/null 2>&1 || true
+
+  branch="$(git -C "$REPO_ROOT" branch --show-current 2>/dev/null || true)"
+  if [[ -z "$branch" ]]; then
+    echo "Auto-commit done: $report_rel (no branch detected)."
+    return 0
+  fi
+
+  if ! git -C "$REPO_ROOT" remote get-url origin >/dev/null 2>&1; then
+    echo "Auto-commit done locally (no remote). Report: $report_rel"
+    return 0
+  fi
+
+  if git -C "$REPO_ROOT" push origin "$branch" >/dev/null 2>&1; then
+    echo "Auto-commit pushed: $report_rel"
+    return 0
+  fi
+
+  if git -C "$REPO_ROOT" pull --rebase origin "$branch" >/dev/null 2>&1 && \
+     git -C "$REPO_ROOT" push origin "$branch" >/dev/null 2>&1; then
+    echo "Auto-commit pushed after rebase: $report_rel"
+    return 0
+  fi
+
+  echo "Auto-commit push failed. Report: $report_rel"
+  return 1
 }
 
 cleanup_reports_keep_last() {
@@ -611,6 +684,89 @@ pg_psql() {
   echo | tee -a "$log" >/dev/null
 }
 
+# ---------- Postgres helpers ----------
+pg_mask_secret() {
+  local s="${1:-}"
+  if [[ -z "$s" ]]; then
+    echo "(empty)"
+    return
+  fi
+  if [[ "${#s}" -le 2 ]]; then
+    echo "${s:0:1}***"
+    return
+  fi
+  echo "${s:0:2}***"
+}
+
+pg_conn_info() {
+  local mode="$1" port="$2"
+  echo "DB_MODE=$mode"
+  echo "PG_HOST=$PG_HOST"
+  echo "PG_PORT=$port"
+  echo "PG_DB=$PG_DB"
+  echo "PG_USER=$PG_USER"
+  echo "PG_PASSWORD=$(pg_mask_secret "$PG_PASSWORD")"
+  echo "PG_ADMIN_USER=$PG_ADMIN_USER"
+}
+
+pg_is_listening() {
+  local port="$1"
+  if ! command -v ss >/dev/null 2>&1; then
+    return 1
+  fi
+  ss -lntp 2>/dev/null | grep -q ":$port"
+}
+
+db_docker_running() {
+  command -v docker >/dev/null 2>&1 || return 1
+  docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$PG_CONTAINER"
+}
+
+db_detect_mode() {
+  case "$DB_MODE" in
+    system|docker)
+      echo "$DB_MODE"
+      ;;
+    auto)
+      if db_docker_running; then
+        echo "docker"
+        return
+      fi
+      if pg_is_listening 5432; then
+        echo "system"
+        return
+      fi
+      echo "docker"
+      ;;
+    *)
+      echo "system"
+      ;;
+  esac
+}
+
+db_select_mode() {
+  local mode
+  mode="$(db_detect_mode)"
+  if [[ "$PG_PORT_DEFAULTED" == "1" ]]; then
+    if [[ "$mode" == "docker" ]]; then
+      PG_PORT=5433
+    else
+      PG_PORT=5432
+    fi
+  fi
+  echo "$mode"
+}
+
+db_log_error() {
+  local log="$1" msg="$2"
+  {
+    echo
+    echo "ERROR"
+    echo "$msg"
+    echo
+  } | tee -a "$log" >/dev/null
+}
+
 pg_down() {
   local log="$1"
   docker_ready "$log" || return 1
@@ -622,8 +778,432 @@ pg_down() {
 pg_print_conn() {
   local log="$1"
   log_block "Postgres: connection string" "$log"
-  echo "ConnectionStrings__Default=Host=localhost;Port=$PG_PORT;Database=$PG_DB;Username=$PG_USER;Password=$PG_PASSWORD" \
+  echo "ConnectionStrings__Default=Host=$PG_HOST;Port=$PG_PORT;Database=$PG_DB;Username=$PG_USER;Password=$(pg_mask_secret "$PG_PASSWORD")" \
     | tee -a "$log" >/dev/null
+}
+
+# ---------- Postgres (DB menu) ----------
+db_run_action() {
+  local log="$1" tag="$2"
+  shift 2
+  set +e
+  "$@"
+  local rc=$?
+  set -e
+  if [[ "$rc" -eq 0 ]]; then
+    return 0
+  fi
+  if [[ "$rc" -eq 2 ]]; then
+    return 0
+  fi
+  db_log_error "$log" "DB action failed: $tag"
+  auto_commit_report "$log" "$tag" || true
+  return "$rc"
+}
+
+db_status() {
+  local log="$1"
+  local mode
+  mode="$(db_select_mode)"
+
+  log_block "DB: status" "$log"
+  {
+    pg_conn_info "$mode" "$PG_PORT"
+  } | tee -a "$log" >/dev/null
+
+  if [[ "$mode" == "system" ]]; then
+    run_shell_and_log "DB: systemctl status postgresql" "$log" \
+      "systemctl is-active postgresql || systemctl status postgresql"
+    run_shell_and_log "DB: listener on $PG_PORT" "$log" \
+      "ss -lntp 2>/dev/null | grep ':$PG_PORT'"
+    run_shell_and_log "DB: pg_isready" "$log" \
+      "pg_isready -h '$PG_HOST' -p '$PG_PORT'"
+    return 0
+  fi
+
+  docker_ready "$log" || return 1
+  pg_require_files "$log" || return 1
+  run_and_log "DB: docker compose ps" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" ps
+  run_shell_and_log "DB: docker container health" "$log" \
+    "docker inspect --format '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' '$PG_CONTAINER' 2>/dev/null || true"
+  run_shell_and_log "DB: pg_isready (container)" "$log" \
+    "docker exec -i '$PG_CONTAINER' pg_isready -U '$PG_USER' -d '$PG_DB'"
+}
+
+db_diag() {
+  local log="$1"
+  local mode
+  mode="$(db_select_mode)"
+
+  run_shell_and_log "DB: ports 5432/5433" "$log" \
+    "ss -lntp 2>/dev/null | { grep ':5432' || true; grep ':5433' || true; } || true"
+
+  if command -v docker >/dev/null 2>&1; then
+    run_and_log "DB: docker ps -a (filtered)" "$log" \
+      docker ps -a --filter "name=$PG_CONTAINER" --filter "name=postgres"
+  else
+    log_block "DB: docker ps -a (filtered)" "$log"
+    echo "docker not installed." | tee -a "$log" >/dev/null
+  fi
+
+  if [[ "$mode" == "system" ]]; then
+    run_shell_and_log "DB: systemctl status postgresql" "$log" \
+      "systemctl status postgresql || true"
+    return 0
+  fi
+
+  docker_ready "$log" || return 1
+  pg_require_files "$log" || return 1
+  run_and_log "DB: docker compose config --services" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" config --services
+  run_and_log "DB: docker compose ps" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" ps
+}
+
+db_psql_shell() {
+  local log="$1"
+  local mode
+  mode="$(db_select_mode)"
+
+  log_block "DB: psql shell (interactive)" "$log"
+  {
+    pg_conn_info "$mode" "$PG_PORT"
+  } | tee -a "$log" >/dev/null
+
+  if [[ "$mode" == "system" ]]; then
+    echo "+ sudo -u $PG_ADMIN_USER psql -h $PG_HOST -p $PG_PORT -U $PG_ADMIN_USER -d $PG_DB" \
+      | tee -a "$log" >/dev/null
+    sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" -d "$PG_DB"
+  else
+    docker_ready "$log" || return 1
+    echo "+ docker exec -it $PG_CONTAINER psql -U $PG_USER -d $PG_DB" \
+      | tee -a "$log" >/dev/null
+    docker exec -e PGPASSWORD="$PG_PASSWORD" -it "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB"
+  fi
+  echo | tee -a "$log" >/dev/null
+}
+
+db_list_dbs() {
+  local log="$1"
+  local mode
+  mode="$(db_select_mode)"
+
+  log_block "DB: list databases" "$log"
+  {
+    pg_conn_info "$mode" "$PG_PORT"
+    echo "+ psql (admin) list databases"
+  } | tee -a "$log" >/dev/null
+
+  if [[ "$mode" == "system" ]]; then
+    {
+      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -Atc "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY 1;"
+    } 2>&1 | tee -a "$log"
+  else
+    docker_ready "$log" || return 1
+    {
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -Atc "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY 1;"
+    } 2>&1 | tee -a "$log"
+  fi
+}
+
+db_create_db() {
+  local log="$1"
+  local db
+  read -r -p "Database name [$PG_DB]: " db </dev/tty || true
+  db="${db:-$PG_DB}"
+
+  local mode
+  mode="$(db_select_mode)"
+
+  log_block "DB: create database" "$log"
+  {
+    echo "Target DB: $db"
+    echo "Owner: $PG_USER"
+    echo "+ psql (admin) create database if missing"
+  } | tee -a "$log" >/dev/null
+
+  if [[ "$mode" == "system" ]]; then
+    {
+      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -v db="$db" -v owner="$PG_USER" <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db') THEN
+    EXECUTE format('CREATE DATABASE %I OWNER %I', :'db', :'owner');
+  END IF;
+END $$;
+SQL
+    } 2>&1 | tee -a "$log"
+  else
+    docker_ready "$log" || return 1
+    {
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -v db="$db" -v owner="$PG_USER" <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db') THEN
+    EXECUTE format('CREATE DATABASE %I OWNER %I', :'db', :'owner');
+  END IF;
+END $$;
+SQL
+    } 2>&1 | tee -a "$log"
+  fi
+}
+
+db_drop_db() {
+  local log="$1"
+  local db confirm
+  read -r -p "Database to drop [$PG_DB]: " db </dev/tty || true
+  db="${db:-$PG_DB}"
+  read -r -p "Type '$db' to confirm drop: " confirm </dev/tty || true
+  if [[ "$confirm" != "$db" ]]; then
+    log_block "DB: drop database" "$log"
+    echo "Canceled: confirmation mismatch." | tee -a "$log" >/dev/null
+    return 2
+  fi
+
+  local mode
+  mode="$(db_select_mode)"
+
+  log_block "DB: drop database" "$log"
+  echo "Target DB: $db" | tee -a "$log" >/dev/null
+
+  if [[ "$mode" == "system" ]]; then
+    {
+      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -v db="$db" -c \
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'db' AND pid <> pg_backend_pid();"
+      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -v db="$db" -c \
+        "DROP DATABASE IF EXISTS :\"db\";"
+    } 2>&1 | tee -a "$log"
+  else
+    docker_ready "$log" || return 1
+    {
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -v db="$db" -c \
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'db' AND pid <> pg_backend_pid();"
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -v db="$db" -c \
+        "DROP DATABASE IF EXISTS :\"db\";"
+    } 2>&1 | tee -a "$log"
+  fi
+}
+
+db_ensure_bootstrap() {
+  local log="$1"
+  local mode
+  mode="$(db_select_mode)"
+
+  log_block "DB: ensure role + database" "$log"
+  {
+    pg_conn_info "$mode" "$PG_PORT"
+    echo "Role: $PG_USER"
+    echo "Database: $PG_DB"
+    echo "+ psql (admin) ensure role/db (password redacted)"
+  } | tee -a "$log" >/dev/null
+
+  if [[ "$mode" == "system" ]]; then
+    {
+      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -v role="$PG_USER" -v pwd="$PG_PASSWORD" -v db="$PG_DB" <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role') THEN
+    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'role', :'pwd');
+  ELSE
+    EXECUTE format('ALTER ROLE %I LOGIN PASSWORD %L', :'role', :'pwd');
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db') THEN
+    EXECUTE format('CREATE DATABASE %I OWNER %I', :'db', :'role');
+  END IF;
+END $$;
+SQL
+    } 2>&1 | tee -a "$log"
+  else
+    docker_ready "$log" || return 1
+    {
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -v role="$PG_USER" -v pwd="$PG_PASSWORD" -v db="$PG_DB" <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role') THEN
+    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'role', :'pwd');
+  ELSE
+    EXECUTE format('ALTER ROLE %I LOGIN PASSWORD %L', :'role', :'pwd');
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db') THEN
+    EXECUTE format('CREATE DATABASE %I OWNER %I', :'db', :'role');
+  END IF;
+END $$;
+SQL
+    } 2>&1 | tee -a "$log"
+  fi
+}
+
+db_list_tables() {
+  local log="$1"
+  local db
+  read -r -p "Database name [$PG_DB]: " db </dev/tty || true
+  db="${db:-$PG_DB}"
+
+  local mode
+  mode="$(db_select_mode)"
+
+  log_block "DB: list tables" "$log"
+  {
+    echo "Target DB: $db"
+    echo "+ psql (admin) list tables"
+  } | tee -a "$log" >/dev/null
+
+  if [[ "$mode" == "system" ]]; then
+    {
+      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" -d "$db" \
+        -v ON_ERROR_STOP=1 -Atc \
+        "SELECT schemaname || '.' || tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1;"
+    } 2>&1 | tee -a "$log"
+  else
+    docker_ready "$log" || return 1
+    {
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" -d "$db" \
+        -v ON_ERROR_STOP=1 -Atc \
+        "SELECT schemaname || '.' || tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1;"
+    } 2>&1 | tee -a "$log"
+  fi
+}
+
+db_backup() {
+  local log="$1"
+  local db
+  read -r -p "Database to backup [$PG_DB]: " db </dev/tty || true
+  db="${db:-$PG_DB}"
+
+  local mode
+  mode="$(db_select_mode)"
+  local backup="$REPORT_DIR/db_backup_${db}_$(date +'%Y-%m-%d_%H-%M-%S').sql"
+
+  log_block "DB: backup (pg_dump)" "$log"
+  if [[ "$mode" == "docker" ]]; then
+    docker_ready "$log" || return 1
+  fi
+  {
+    echo "Target DB: $db"
+    echo "Backup file: $backup"
+    echo "+ pg_dump (mode=$mode) > $backup"
+    if [[ "$mode" == "system" ]]; then
+      sudo -u "$PG_ADMIN_USER" pg_dump -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" "$db" >"$backup"
+    else
+      docker exec -e PGPASSWORD="$PG_PASSWORD" "$PG_CONTAINER" pg_dump -U "$PG_USER" "$db" >"$backup"
+    fi
+    echo "Backup complete: $backup"
+  } 2>&1 | tee -a "$log"
+}
+
+db_restore() {
+  local log="$1"
+  local db file confirm
+  read -r -p "Database to restore into [$PG_DB]: " db </dev/tty || true
+  db="${db:-$PG_DB}"
+  read -r -p "Path to backup file: " file </dev/tty || true
+  if [[ -z "$file" || ! -f "$file" ]]; then
+    log_block "DB: restore" "$log"
+    echo "Missing backup file: $file" | tee -a "$log" >/dev/null
+    return 1
+  fi
+  read -r -p "Type '$db' to confirm restore: " confirm </dev/tty || true
+  if [[ "$confirm" != "$db" ]]; then
+    log_block "DB: restore" "$log"
+    echo "Canceled: confirmation mismatch." | tee -a "$log" >/dev/null
+    return 2
+  fi
+
+  local mode
+  mode="$(db_select_mode)"
+
+  log_block "DB: restore (psql)" "$log"
+  if [[ "$mode" == "docker" ]]; then
+    docker_ready "$log" || return 1
+  fi
+  {
+    echo "Target DB: $db"
+    echo "Backup file: $file"
+    echo "+ psql (mode=$mode) < $file"
+    if [[ "$mode" == "system" ]]; then
+      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" -d "$db" -f "$file"
+    else
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" -d "$db" <"$file"
+    fi
+  } 2>&1 | tee -a "$log"
+}
+
+db_show_connections() {
+  local log="$1"
+  local mode
+  mode="$(db_select_mode)"
+
+  log_block "DB: active connections" "$log"
+  {
+    pg_conn_info "$mode" "$PG_PORT"
+    echo "+ psql (admin) show pg_stat_activity"
+  } | tee -a "$log" >/dev/null
+
+  if [[ "$mode" == "system" ]]; then
+    {
+      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -Atc \
+        "SELECT pid, usename, datname, client_addr, state, query_start FROM pg_stat_activity ORDER BY query_start DESC;"
+    } 2>&1 | tee -a "$log"
+  else
+    docker_ready "$log" || return 1
+    {
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -Atc \
+        "SELECT pid, usename, datname, client_addr, state, query_start FROM pg_stat_activity ORDER BY query_start DESC;"
+    } 2>&1 | tee -a "$log"
+  fi
+}
+
+db_kill_connections() {
+  local log="$1"
+  local db confirm
+  read -r -p "Database to kill connections [$PG_DB]: " db </dev/tty || true
+  db="${db:-$PG_DB}"
+  read -r -p "Type '$db' to confirm kill: " confirm </dev/tty || true
+  if [[ "$confirm" != "$db" ]]; then
+    log_block "DB: kill connections" "$log"
+    echo "Canceled: confirmation mismatch." | tee -a "$log" >/dev/null
+    return 2
+  fi
+
+  local mode
+  mode="$(db_select_mode)"
+
+  log_block "DB: kill connections" "$log"
+  echo "Target DB: $db" | tee -a "$log" >/dev/null
+
+  if [[ "$mode" == "system" ]]; then
+    {
+      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -v db="$db" -c \
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'db' AND pid <> pg_backend_pid();"
+    } 2>&1 | tee -a "$log"
+  else
+    docker_ready "$log" || return 1
+    {
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -v db="$db" -c \
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'db' AND pid <> pg_backend_pid();"
+    } 2>&1 | tee -a "$log"
+  fi
 }
 
 # ---------- Diagnostics ----------
@@ -752,6 +1332,20 @@ P4) Postgres psql
 P5) Postgres down
 P6) Print Postgres connection string
 P7) Postgres diagnostics
+------------------------------------------
+[DB - Postgres]
+D1) DB status/health
+D2) DB diagnostics
+D3) psql shell
+D4) List databases
+D5) Create database
+D6) Drop database
+D7) Ensure vpnservice DB + user
+D8) List tables in a database
+D9) Backup database to reports
+DA) Restore database from file
+DB) Show active connections
+DC) Kill connections to a DB
 ------------------------------------------
 [STAGES]
 S2) Stage 3.2 check (auth + reconcile)
@@ -1025,6 +1619,90 @@ while true; do
       report="$(report_name)"
       header "Postgres diagnostics. Report: $report"
       pg_diag "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    D1|d1)
+      report="$(report_name)"
+      header "DB status/health. Report: $report"
+      db_run_action "$report" "db_status" db_status "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    D2|d2)
+      report="$(report_name)"
+      header "DB diagnostics. Report: $report"
+      db_run_action "$report" "db_diag" db_diag "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    D3|d3)
+      report="$(report_name)"
+      header "DB psql shell. Report: $report"
+      db_run_action "$report" "db_psql_shell" db_psql_shell "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    D4|d4)
+      report="$(report_name)"
+      header "DB list databases. Report: $report"
+      db_run_action "$report" "db_list_dbs" db_list_dbs "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    D5|d5)
+      report="$(report_name)"
+      header "DB create database. Report: $report"
+      db_run_action "$report" "db_create_db" db_create_db "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    D6|d6)
+      report="$(report_name)"
+      header "DB drop database. Report: $report"
+      db_run_action "$report" "db_drop_db" db_drop_db "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    D7|d7)
+      report="$(report_name)"
+      header "DB ensure vpnservice DB + user. Report: $report"
+      db_run_action "$report" "db_ensure_bootstrap" db_ensure_bootstrap "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    D8|d8)
+      report="$(report_name)"
+      header "DB list tables. Report: $report"
+      db_run_action "$report" "db_list_tables" db_list_tables "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    D9|d9)
+      report="$(report_name)"
+      header "DB backup. Report: $report"
+      db_run_action "$report" "db_backup" db_backup "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    DA|da)
+      report="$(report_name)"
+      header "DB restore. Report: $report"
+      db_run_action "$report" "db_restore" db_restore "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    DB|db)
+      report="$(report_name)"
+      header "DB active connections. Report: $report"
+      db_run_action "$report" "db_show_connections" db_show_connections "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    DC|dc)
+      report="$(report_name)"
+      header "DB kill connections. Report: $report"
+      db_run_action "$report" "db_kill_connections" db_kill_connections "$report" || true
       echo "${GREEN}Report:${NC} $report"
       pause
       ;;
