@@ -700,6 +700,14 @@ pg_mask_secret() {
   echo "${s:0:2}***"
 }
 
+pg_escape_ident() {
+  printf '%s' "$1" | sed 's/"/""/g'
+}
+
+pg_escape_literal() {
+  printf '%s' "$1" | sed "s/'/''/g"
+}
+
 pg_conn_info() {
   local mode="$1" port="$2"
   echo "DB_MODE=$mode"
@@ -919,6 +927,10 @@ db_create_db() {
 
   local mode
   mode="$(db_select_mode)"
+  local db_ident db_lit owner_ident db_exists
+  db_ident="$(pg_escape_ident "$db")"
+  db_lit="$(pg_escape_literal "$db")"
+  owner_ident="$(pg_escape_ident "$PG_USER")"
 
   log_block "DB: create database" "$log"
   {
@@ -929,28 +941,22 @@ db_create_db() {
 
   if [[ "$mode" == "system" ]]; then
     {
-      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -v db="$db" -v owner="$PG_USER" <<'SQL'
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db') THEN
-    EXECUTE format('CREATE DATABASE %I OWNER %I', :'db', :'owner');
-  END IF;
-END $$;
-SQL
+      db_exists="$(sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")"
+      if [[ "$db_exists" != "1" ]]; then
+        sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
+          -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$db_ident\" OWNER \"$owner_ident\";"
+      fi
     } 2>&1 | tee -a "$log"
   else
     docker_ready "$log" || return 1
     {
-      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -v db="$db" -v owner="$PG_USER" <<'SQL'
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db') THEN
-    EXECUTE format('CREATE DATABASE %I OWNER %I', :'db', :'owner');
-  END IF;
-END $$;
-SQL
+      db_exists="$(docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")"
+      if [[ "$db_exists" != "1" ]]; then
+        docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+          -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$db_ident\" OWNER \"$owner_ident\";"
+      fi
     } 2>&1 | tee -a "$log"
   fi
 }
@@ -969,6 +975,9 @@ db_drop_db() {
 
   local mode
   mode="$(db_select_mode)"
+  local db_ident db_lit
+  db_ident="$(pg_escape_ident "$db")"
+  db_lit="$(pg_escape_literal "$db")"
 
   log_block "DB: drop database" "$log"
   echo "Target DB: $db" | tee -a "$log" >/dev/null
@@ -976,21 +985,19 @@ db_drop_db() {
   if [[ "$mode" == "system" ]]; then
     {
       sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -v db="$db" -c \
-        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'db' AND pid <> pg_backend_pid();"
+        -v ON_ERROR_STOP=1 -c \
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db_lit' AND pid <> pg_backend_pid();"
       sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -v db="$db" -c \
-        "DROP DATABASE IF EXISTS :\"db\";"
+        -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS \"$db_ident\";"
     } 2>&1 | tee -a "$log"
   else
     docker_ready "$log" || return 1
     {
       docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -v db="$db" -c \
-        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'db' AND pid <> pg_backend_pid();"
+        -v ON_ERROR_STOP=1 -c \
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db_lit' AND pid <> pg_backend_pid();"
       docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -v db="$db" -c \
-        "DROP DATABASE IF EXISTS :\"db\";"
+        -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS \"$db_ident\";"
     } 2>&1 | tee -a "$log"
   fi
 }
@@ -1001,6 +1008,10 @@ db_ensure_bootstrap() {
   mode="$(db_select_mode)"
   local admin_user
   admin_user="$PG_USER"
+  local role_ident db_ident pwd_lit
+  role_ident="$(pg_escape_ident "$PG_USER")"
+  db_ident="$(pg_escape_ident "$PG_DB")"
+  pwd_lit="$(pg_escape_literal "$PG_PASSWORD")"
 
   log_block "DB: ensure role + database" "$log"
   {
@@ -1013,44 +1024,44 @@ db_ensure_bootstrap() {
 
   if [[ "$mode" == "system" ]]; then
     {
-      PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
-        -v ON_ERROR_STOP=1 -v role="$PG_USER" -v pwd="$PG_PASSWORD" -v db="$PG_DB" <<'SQL'
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role') THEN
-    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'role', :'pwd');
-  ELSE
-    EXECUTE format('ALTER ROLE %I LOGIN PASSWORD %L', :'role', :'pwd');
-  END IF;
-END $$;
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db') THEN
-    EXECUTE format('CREATE DATABASE %I OWNER %I', :'db', :'role');
-  END IF;
-END $$;
-SQL
+      local role_exists db_exists
+      role_exists="$(PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
+        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_roles WHERE rolname = '$role_ident' LIMIT 1;")"
+      if [[ "$role_exists" == "1" ]]; then
+        PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
+          -v ON_ERROR_STOP=1 -c "ALTER ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';"
+      else
+        PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
+          -v ON_ERROR_STOP=1 -c "CREATE ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';"
+      fi
+
+      db_exists="$(PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
+        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_ident' LIMIT 1;")"
+      if [[ "$db_exists" != "1" ]]; then
+        PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
+          -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$db_ident\" OWNER \"$role_ident\";"
+      fi
     } 2>&1 | tee -a "$log"
   else
     docker_ready "$log" || return 1
     {
-      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
-        -v ON_ERROR_STOP=1 -v role="$PG_USER" -v pwd="$PG_PASSWORD" -v db="$PG_DB" <<'SQL'
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role') THEN
-    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'role', :'pwd');
-  ELSE
-    EXECUTE format('ALTER ROLE %I LOGIN PASSWORD %L', :'role', :'pwd');
-  END IF;
-END $$;
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db') THEN
-    EXECUTE format('CREATE DATABASE %I OWNER %I', :'db', :'role');
-  END IF;
-END $$;
-SQL
+      local role_exists db_exists
+      role_exists="$(docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
+        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_roles WHERE rolname = '$role_ident' LIMIT 1;")"
+      if [[ "$role_exists" == "1" ]]; then
+        docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
+          -v ON_ERROR_STOP=1 -c "ALTER ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';"
+      else
+        docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
+          -v ON_ERROR_STOP=1 -c "CREATE ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';"
+      fi
+
+      db_exists="$(docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
+        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_ident' LIMIT 1;")"
+      if [[ "$db_exists" != "1" ]]; then
+        docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
+          -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$db_ident\" OWNER \"$role_ident\";"
+      fi
     } 2>&1 | tee -a "$log"
   fi
 }
@@ -1063,6 +1074,8 @@ db_list_tables() {
 
   local mode
   mode="$(db_select_mode)"
+  local db_lit
+  db_lit="$(pg_escape_literal "$db")"
 
   log_block "DB: list tables" "$log"
   {
@@ -1072,6 +1085,13 @@ db_list_tables() {
 
   if [[ "$mode" == "system" ]]; then
     {
+      local db_exists
+      db_exists="$(sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")"
+      if [[ "$db_exists" != "1" ]]; then
+        echo "Database not found: $db"
+        exit 1
+      fi
       sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" -d "$db" \
         -v ON_ERROR_STOP=1 -Atc \
         "SELECT schemaname || '.' || tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1;"
@@ -1079,6 +1099,13 @@ db_list_tables() {
   else
     docker_ready "$log" || return 1
     {
+      local db_exists
+      db_exists="$(docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")"
+      if [[ "$db_exists" != "1" ]]; then
+        echo "Database not found: $db"
+        exit 1
+      fi
       docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" -d "$db" \
         -v ON_ERROR_STOP=1 -Atc \
         "SELECT schemaname || '.' || tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1;"
