@@ -1,0 +1,34 @@
+[1;33mAPI already running. PID=6347[0m
+-------------------------------------------
+TASK: Auth: health check
+TIME_UTC: Пн 05 янв 2026 09:34:28 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ curl -fsS http://localhost:5272/health
+Healthy
+-------------------------------------------
+TASK: Auth: login (get token)
+TIME_UTC: Пн 05 янв 2026 09:34:28 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+Token saved: /opt/vpn-service/reports/last_token.txt
+Token preview: eyJhbGciOiJIUzI1NiIsInR5c...
+Auth OK. Token saved.
+-------------------------------------------
+TASK: Stage 3.3: call wg state
+TIME_UTC: Пн 05 янв 2026 09:34:28 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+GET http://localhost:5272/api/v1/admin/wg/state?iface=wg1
+HTTP 200, saved: /opt/vpn-service/reports/last_wg_state.json
+-------------------------------------------
+TASK: Stage 3.3: wg state preview (first 400 chars)
+TIME_UTC: Пн 05 янв 2026 09:34:28 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ bash -lc head -c 400 '/opt/vpn-service/reports/last_wg_state.json'
+{"iface":"wg1","generatedAtUtc":"2026-01-05T09:34:28.1738438Z","interface":{"publicKey":"ZYXEy5Xnr\u002B8yTjisbjgyaLGzvDBqvPtcY6A/EFEAk0U=","listenPort":51820},"peers":[]}

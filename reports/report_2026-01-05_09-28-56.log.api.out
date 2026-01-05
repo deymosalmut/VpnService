@@ -19,3 +19,70 @@
 [09:29:31 INF] Executing endpoint 'Health checks'
 [09:29:31 INF] Executed endpoint 'Health checks'
 [09:29:31 INF] Request finished HTTP/1.1 GET http://localhost:5272/health - 200 null text/plain 7.5285ms
+[09:33:53 INF] Request starting HTTP/1.1 GET http://localhost:5272/health - null null
+[09:33:53 INF] Executing endpoint 'Health checks'
+[09:33:53 INF] Executed endpoint 'Health checks'
+[09:33:53 INF] Request finished HTTP/1.1 GET http://localhost:5272/health - 200 null text/plain 2.7023ms
+[09:33:53 INF] Request starting HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - application/json 42
+[09:33:53 INF] Executing endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
+[09:33:53 INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[VpnService.Application.DTOs.AuthLoginResponse]] Login(VpnService.Application.DTOs.AuthLoginRequest) on controller VpnService.Api.Controllers.AuthController (VpnService.Api).
+[09:33:53 INF] Saved 1 entities to in-memory store.
+[09:33:53 INF] User logged in: admin
+[09:33:53 INF] Executing OkObjectResult, writing value of type 'VpnService.Application.DTOs.AuthLoginResponse'.
+[09:33:53 INF] Executed action VpnService.Api.Controllers.AuthController.Login (VpnService.Api) in 150.8497ms
+[09:33:53 INF] Executed endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
+[09:33:53 INF] Request finished HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - 200 null application/json; charset=utf-8 170.7032ms
+[09:33:53 INF] Request starting HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/reconcile?iface=wg1&mode=dry-run - null null
+[09:33:53 INF] Executing endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.Reconcile (VpnService.Api)'
+[09:33:53 INF] Route matched with {action = "Reconcile", controller = "WireGuardAdmin"}. Executing controller action with signature Microsoft.AspNetCore.Mvc.IActionResult Reconcile(System.String, System.String) on controller VpnService.Api.Controllers.V1.WireGuardAdminController (VpnService.Api).
+[09:33:53 INF] Executing OkObjectResult, writing value of type '<>f__AnonymousType2`3[[System.String, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[<>f__AnonymousType3`3[[System.Int32, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]], VpnService.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null],[System.Object[], System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+[09:33:53 INF] Executed action VpnService.Api.Controllers.V1.WireGuardAdminController.Reconcile (VpnService.Api) in 15.57ms
+[09:33:53 INF] Executed endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.Reconcile (VpnService.Api)'
+[09:33:53 INF] Request finished HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/reconcile?iface=wg1&mode=dry-run - 200 null application/json; charset=utf-8 61.2971ms
+[09:34:28 INF] Request starting HTTP/1.1 GET http://localhost:5272/health - null null
+[09:34:28 INF] Executing endpoint 'Health checks'
+[09:34:28 INF] Executed endpoint 'Health checks'
+[09:34:28 INF] Request finished HTTP/1.1 GET http://localhost:5272/health - 200 null text/plain 1.5042ms
+[09:34:28 INF] Request starting HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - application/json 42
+[09:34:28 INF] Executing endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
+[09:34:28 INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[VpnService.Application.DTOs.AuthLoginResponse]] Login(VpnService.Application.DTOs.AuthLoginRequest) on controller VpnService.Api.Controllers.AuthController (VpnService.Api).
+[09:34:28 INF] Saved 1 entities to in-memory store.
+[09:34:28 INF] User logged in: admin
+[09:34:28 INF] Executing OkObjectResult, writing value of type 'VpnService.Application.DTOs.AuthLoginResponse'.
+[09:34:28 INF] Executed action VpnService.Api.Controllers.AuthController.Login (VpnService.Api) in 22.8482ms
+[09:34:28 INF] Executed endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
+[09:34:28 INF] Request finished HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - 200 null application/json; charset=utf-8 24.6699ms
+[09:34:28 INF] Request starting HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/state?iface=wg1 - null null
+[09:34:28 INF] Executing endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.GetState (VpnService.Api)'
+[09:34:28 INF] Route matched with {action = "GetState", controller = "WireGuardAdmin"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetState(System.String, System.Threading.CancellationToken) on controller VpnService.Api.Controllers.V1.WireGuardAdminController (VpnService.Api).
+[09:34:28 INF] Executing ContentResult with HTTP Response ContentType of application/json
+[09:34:28 INF] Executed action VpnService.Api.Controllers.V1.WireGuardAdminController.GetState (VpnService.Api) in 20.0339ms
+[09:34:28 INF] Executed endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.GetState (VpnService.Api)'
+[09:34:28 INF] Request finished HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/state?iface=wg1 - 200 171 application/json 27.0427ms
+[09:39:45 INF] Request starting HTTP/1.1 GET http://localhost:5272/health - null null
+[09:39:45 INF] Executing endpoint 'Health checks'
+[09:39:45 INF] Executed endpoint 'Health checks'
+[09:39:45 INF] Request finished HTTP/1.1 GET http://localhost:5272/health - 200 null text/plain 1.1659ms
+[09:39:45 INF] Request starting HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - application/json 42
+[09:39:45 INF] Executing endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
+[09:39:45 INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[VpnService.Application.DTOs.AuthLoginResponse]] Login(VpnService.Application.DTOs.AuthLoginRequest) on controller VpnService.Api.Controllers.AuthController (VpnService.Api).
+[09:39:45 INF] Saved 1 entities to in-memory store.
+[09:39:45 INF] User logged in: admin
+[09:39:45 INF] Executing OkObjectResult, writing value of type 'VpnService.Application.DTOs.AuthLoginResponse'.
+[09:39:45 INF] Executed action VpnService.Api.Controllers.AuthController.Login (VpnService.Api) in 4.4809ms
+[09:39:45 INF] Executed endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
+[09:39:45 INF] Request finished HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - 200 null application/json; charset=utf-8 5.8856ms
+[09:39:45 INF] Request starting HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/reconcile?iface=wg1&mode=dry-run - null null
+[09:39:45 INF] Executing endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.Reconcile (VpnService.Api)'
+[09:39:45 INF] Route matched with {action = "Reconcile", controller = "WireGuardAdmin"}. Executing controller action with signature Microsoft.AspNetCore.Mvc.IActionResult Reconcile(System.String, System.String) on controller VpnService.Api.Controllers.V1.WireGuardAdminController (VpnService.Api).
+[09:39:45 INF] Executing OkObjectResult, writing value of type '<>f__AnonymousType2`3[[System.String, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[<>f__AnonymousType3`3[[System.Int32, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32, System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]], VpnService.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null],[System.Object[], System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+[09:39:45 INF] Executed action VpnService.Api.Controllers.V1.WireGuardAdminController.Reconcile (VpnService.Api) in 1.0393ms
+[09:39:45 INF] Executed endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.Reconcile (VpnService.Api)'
+[09:39:45 INF] Request finished HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/reconcile?iface=wg1&mode=dry-run - 200 null application/json; charset=utf-8 3.5095ms
+[09:39:45 INF] Request starting HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/state?iface=wg1 - null null
+[09:39:45 INF] Executing endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.GetState (VpnService.Api)'
+[09:39:45 INF] Route matched with {action = "GetState", controller = "WireGuardAdmin"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetState(System.String, System.Threading.CancellationToken) on controller VpnService.Api.Controllers.V1.WireGuardAdminController (VpnService.Api).
+[09:39:45 INF] Executing ContentResult with HTTP Response ContentType of application/json
+[09:39:45 INF] Executed action VpnService.Api.Controllers.V1.WireGuardAdminController.GetState (VpnService.Api) in 8.8088ms
+[09:39:45 INF] Executed endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.GetState (VpnService.Api)'
+[09:39:45 INF] Request finished HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/state?iface=wg1 - 200 171 application/json 12.4135ms
