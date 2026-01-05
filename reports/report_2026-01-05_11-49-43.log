@@ -1,0 +1,18 @@
+-------------------------------------------
+TASK: DB: list databases
+TIME_UTC: Пн 05 янв 2026 11:49:43 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+DB_MODE=system
+PG_HOST=127.0.0.1
+PG_PORT=5432
+PG_DB=vpnservice
+PG_USER=vpnservice
+PG_PASSWORD=23***
+PG_ADMIN_USER=postgres
++ psql (admin) list databases
+
+ERROR
+DB action failed: db_list_dbs
+
