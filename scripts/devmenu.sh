@@ -129,6 +129,128 @@ run_shell_and_log() {
   echo | tee -a "$log" >/dev/null
 }
 
+# ---------- DB logging helpers ----------
+mask_cmd_args() {
+  local masked pass
+  pass="${PG_PASSWORD:-}"
+  for arg in "$@"; do
+    masked="$arg"
+    if [[ -n "$pass" ]]; then
+      masked="${masked//"$pass"/"$(pg_mask_secret "$pass")"}"
+    fi
+    printf '%s\n' "$masked"
+  done
+}
+
+run_step() {
+  # Usage: run_step "Title" "$log" cmd arg1 arg2...
+  local title="$1" log="$2"
+  shift 2
+  log_block "$title" "$log"
+  {
+    local masked_args rc
+    mapfile -t masked_args < <(mask_cmd_args "$@")
+    echo "+ ${masked_args[*]}"
+    "$@"
+    rc=${PIPESTATUS[0]}
+    echo "STATUS: $rc"
+    echo
+    return "$rc"
+  } 2>&1 | tee -a "$log"
+  return "${PIPESTATUS[0]}"
+}
+
+run_step_capture() {
+  # Usage: run_step_capture "Title" "$log" cmd arg1 arg2...
+  local title="$1" log="$2"
+  shift 2
+  log_block "$title" "$log"
+  local masked_args output rc
+  mapfile -t masked_args < <(mask_cmd_args "$@")
+  echo "+ ${masked_args[*]}" | tee -a "$log" >/dev/null
+  output="$("$@" 2>&1 | tee -a "$log")"
+  rc=${PIPESTATUS[0]}
+  echo "STATUS: $rc" | tee -a "$log" >/dev/null
+  echo | tee -a "$log" >/dev/null
+  printf '%s' "$output"
+  return "$rc"
+}
+
+ask_yes_no() {
+  local prompt="$1"
+  local ans
+  while true; do
+    read -r -p "$prompt (yes/no): " ans </dev/tty || true
+    case "${ans,,}" in
+      yes|y) return 0 ;;
+      no|n) return 1 ;;
+      *) echo "Please type yes or no." ;;
+    esac
+  done
+}
+
+repo_relpath() {
+  local abs="$1"
+  python3 - <<'PY' "$REPO_ROOT" "$abs"
+import os,sys
+root=os.path.abspath(sys.argv[1])
+p=os.path.abspath(sys.argv[2])
+print(os.path.relpath(p, root))
+PY
+}
+
+git_ok() {
+  git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1
+}
+
+current_branch() {
+  git -C "$REPO_ROOT" branch --show-current 2>/dev/null || echo "main"
+}
+
+commit_report_interactive() {
+  local report_abs="$1" tag="${2:-report}"
+  local report_rel
+
+  if [[ -z "$report_abs" || ! -f "$report_abs" ]]; then
+    echo "Commit skipped: report not found."
+    return 1
+  fi
+
+  if [[ "$report_abs" == *"/infra/postgres/.env" || "$report_abs" == *"infra/postgres/.env" ]]; then
+    echo "Commit skipped: refusing to commit .env."
+    return 1
+  fi
+
+  if ! git_ok; then
+    echo "Commit skipped: not a git repo."
+    return 1
+  fi
+
+  report_rel="$(repo_relpath "$report_abs")"
+
+  if ! ask_yes_no "Commit/push this report?"; then
+    echo "Skipped git commit/push by user choice."
+    return 0
+  fi
+
+  run_step "Git: add (forced) report only" "$report_abs" \
+    git -C "$REPO_ROOT" add -f -- "$report_rel" || true
+
+  run_step "Git: commit report only" "$report_abs" \
+    git -C "$REPO_ROOT" commit -m "report: $tag $(basename "$report_rel")" --only -- "$report_rel" || true
+
+  local br
+  br="$(current_branch)"
+  if run_step "Git: push" "$report_abs" git -C "$REPO_ROOT" push origin "$br"; then
+    echo "Report pushed."
+    return 0
+  fi
+
+  echo "Push failed; trying pull --rebase then push..."
+  run_step "Git: pull --rebase" "$report_abs" git -C "$REPO_ROOT" pull --rebase origin "$br" || true
+  run_step "Git: push after rebase" "$report_abs" git -C "$REPO_ROOT" push origin "$br" || true
+}
+
 # ---------- Git helpers ----------
 git_repo_root() {
   git -C "$REPO_ROOT" rev-parse --show-toplevel >/dev/null 2>&1
@@ -807,7 +929,7 @@ db_run_action() {
     return 0
   fi
   db_log_error "$log" "DB action failed: $tag"
-  auto_commit_report "$log" "$tag" || true
+  commit_report_interactive "$log" "$tag" || true
   return "$rc"
 }
 
@@ -815,6 +937,8 @@ db_status() {
   local log="$1"
   local mode
   mode="$(db_select_mode)"
+  local db_lit
+  db_lit="$(pg_escape_literal "$db")"
 
   log_block "DB: status" "$log"
   {
@@ -822,53 +946,58 @@ db_status() {
   } | tee -a "$log" >/dev/null
 
   if [[ "$mode" == "system" ]]; then
-    run_shell_and_log "DB: systemctl status postgresql" "$log" \
-      "systemctl is-active postgresql || systemctl status postgresql"
-    run_shell_and_log "DB: listener on $PG_PORT" "$log" \
-      "ss -lntp 2>/dev/null | grep ':$PG_PORT'"
-    run_shell_and_log "DB: pg_isready" "$log" \
-      "pg_isready -h '$PG_HOST' -p '$PG_PORT'"
-    return 0
+    local rc=0
+    run_step "DB: systemctl status postgresql" "$log" \
+      bash -lc "systemctl is-active postgresql || systemctl status postgresql" || rc=1
+    run_step "DB: listener on $PG_PORT" "$log" \
+      bash -lc "ss -lntp 2>/dev/null | grep ':$PG_PORT'" || rc=1
+    run_step "DB: pg_isready" "$log" \
+      pg_isready -h "$PG_HOST" -p "$PG_PORT" || rc=1
+    return "$rc"
   fi
 
   docker_ready "$log" || return 1
   pg_require_files "$log" || return 1
-  run_and_log "DB: docker compose ps" "$log" \
-    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" ps
-  run_shell_and_log "DB: docker container health" "$log" \
-    "docker inspect --format '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' '$PG_CONTAINER' 2>/dev/null || true"
-  run_shell_and_log "DB: pg_isready (container)" "$log" \
-    "docker exec -i '$PG_CONTAINER' pg_isready -U '$PG_USER' -d '$PG_DB'"
+  local rc=0
+  run_step "DB: docker compose ps" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" ps || rc=1
+  run_step "DB: docker container health" "$log" \
+    bash -lc "docker inspect --format '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' '$PG_CONTAINER' 2>/dev/null || true" || rc=1
+  run_step "DB: pg_isready (container)" "$log" \
+    docker exec -i "$PG_CONTAINER" pg_isready -U "$PG_USER" -d "$PG_DB" || rc=1
+  return "$rc"
 }
 
 db_diag() {
   local log="$1"
   local mode
   mode="$(db_select_mode)"
+  local rc=0
 
-  run_shell_and_log "DB: ports 5432/5433" "$log" \
-    "ss -lntp 2>/dev/null | { grep ':5432' || true; grep ':5433' || true; } || true"
+  run_step "DB: ports 5432/5433" "$log" \
+    bash -lc "ss -lntp 2>/dev/null | { grep ':5432' || true; grep ':5433' || true; } || true" || rc=1
 
   if command -v docker >/dev/null 2>&1; then
-    run_and_log "DB: docker ps -a (filtered)" "$log" \
-      docker ps -a --filter "name=$PG_CONTAINER" --filter "name=postgres"
+    run_step "DB: docker ps -a (filtered)" "$log" \
+      docker ps -a --filter "name=$PG_CONTAINER" --filter "name=postgres" || rc=1
   else
     log_block "DB: docker ps -a (filtered)" "$log"
     echo "docker not installed." | tee -a "$log" >/dev/null
   fi
 
   if [[ "$mode" == "system" ]]; then
-    run_shell_and_log "DB: systemctl status postgresql" "$log" \
-      "systemctl status postgresql || true"
-    return 0
+    run_step "DB: systemctl status postgresql" "$log" \
+      bash -lc "systemctl status postgresql || true" || rc=1
+    return "$rc"
   fi
 
   docker_ready "$log" || return 1
   pg_require_files "$log" || return 1
-  run_and_log "DB: docker compose config --services" "$log" \
-    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" config --services
-  run_and_log "DB: docker compose ps" "$log" \
-    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" ps
+  run_step "DB: docker compose config --services" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" config --services || rc=1
+  run_step "DB: docker compose ps" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" ps || rc=1
+  return "$rc"
 }
 
 db_psql_shell() {
@@ -882,14 +1011,12 @@ db_psql_shell() {
   } | tee -a "$log" >/dev/null
 
   if [[ "$mode" == "system" ]]; then
-    echo "+ sudo -u $PG_ADMIN_USER psql -h $PG_HOST -p $PG_PORT -U $PG_ADMIN_USER -d $PG_DB" \
-      | tee -a "$log" >/dev/null
-    sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" -d "$PG_DB"
+    run_step "DB: psql shell (system)" "$log" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres -d "$PG_DB" || return 1
   else
     docker_ready "$log" || return 1
-    echo "+ docker exec -it $PG_CONTAINER psql -U $PG_USER -d $PG_DB" \
-      | tee -a "$log" >/dev/null
-    docker exec -e PGPASSWORD="$PG_PASSWORD" -it "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB"
+    run_step "DB: psql shell (docker)" "$log" \
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -it "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" || return 1
   fi
   echo | tee -a "$log" >/dev/null
 }
@@ -906,16 +1033,14 @@ db_list_dbs() {
   } | tee -a "$log" >/dev/null
 
   if [[ "$mode" == "system" ]]; then
-    {
-      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -Atc "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY 1;"
-    } 2>&1 | tee -a "$log"
+    run_step "DB: list databases (system)" "$log" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      -Atc "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY 1;" || return 1
   else
     docker_ready "$log" || return 1
-    {
+    run_step "DB: list databases (docker)" "$log" \
       docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -Atc "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY 1;"
-    } 2>&1 | tee -a "$log"
+      -v ON_ERROR_STOP=1 -Atc "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY 1;" || return 1
   fi
 }
 
@@ -940,24 +1065,26 @@ db_create_db() {
   } | tee -a "$log" >/dev/null
 
   if [[ "$mode" == "system" ]]; then
-    {
-      db_exists="$(sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")"
-      if [[ "$db_exists" != "1" ]]; then
-        sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
-          -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$db_ident\" OWNER \"$owner_ident\";"
-      fi
-    } 2>&1 | tee -a "$log"
+    db_exists="$(run_step_capture "DB: check database exists (system)" "$log" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")" || return 1
+    db_exists="$(printf '%s' "$db_exists" | tr -d '\r' | tail -n 1)"
+    if [[ "$db_exists" != "1" ]]; then
+      run_step "DB: create database (system)" "$log" \
+        sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+        -c "CREATE DATABASE \"$db_ident\" OWNER \"$owner_ident\";" || return 1
+    fi
   else
     docker_ready "$log" || return 1
-    {
-      db_exists="$(docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")"
-      if [[ "$db_exists" != "1" ]]; then
+    db_exists="$(run_step_capture "DB: check database exists (docker)" "$log" \
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+      -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")" || return 1
+    db_exists="$(printf '%s' "$db_exists" | tr -d '\r' | tail -n 1)"
+    if [[ "$db_exists" != "1" ]]; then
+      run_step "DB: create database (docker)" "$log" \
         docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
-          -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$db_ident\" OWNER \"$owner_ident\";"
-      fi
-    } 2>&1 | tee -a "$log"
+        -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$db_ident\" OWNER \"$owner_ident\";" || return 1
+    fi
   fi
 }
 
@@ -983,22 +1110,21 @@ db_drop_db() {
   echo "Target DB: $db" | tee -a "$log" >/dev/null
 
   if [[ "$mode" == "system" ]]; then
-    {
-      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -c \
-        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db_lit' AND pid <> pg_backend_pid();"
-      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS \"$db_ident\";"
-    } 2>&1 | tee -a "$log"
+    run_step "DB: terminate connections (system)" "$log" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db_lit' AND pid <> pg_backend_pid();" || return 1
+    run_step "DB: drop database (system)" "$log" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      -c "DROP DATABASE IF EXISTS \"$db_ident\";" || return 1
   else
     docker_ready "$log" || return 1
-    {
+    run_step "DB: terminate connections (docker)" "$log" \
       docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -c \
-        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db_lit' AND pid <> pg_backend_pid();"
+      -v ON_ERROR_STOP=1 -c \
+      "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db_lit' AND pid <> pg_backend_pid();" || return 1
+    run_step "DB: drop database (docker)" "$log" \
       docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS \"$db_ident\";"
-    } 2>&1 | tee -a "$log"
+      -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS \"$db_ident\";" || return 1
   fi
 }
 
@@ -1007,10 +1133,12 @@ db_ensure_bootstrap() {
   local mode
   mode="$(db_select_mode)"
   local admin_user
-  admin_user="$PG_USER"
-  local role_ident db_ident pwd_lit
+  admin_user="postgres"
+  local role_ident role_lit db_ident db_lit pwd_lit
   role_ident="$(pg_escape_ident "$PG_USER")"
+  role_lit="$(pg_escape_literal "$PG_USER")"
   db_ident="$(pg_escape_ident "$PG_DB")"
+  db_lit="$(pg_escape_literal "$PG_DB")"
   pwd_lit="$(pg_escape_literal "$PG_PASSWORD")"
 
   log_block "DB: ensure role + database" "$log"
@@ -1023,46 +1151,56 @@ db_ensure_bootstrap() {
   } | tee -a "$log" >/dev/null
 
   if [[ "$mode" == "system" ]]; then
-    {
-      local role_exists db_exists
-      role_exists="$(PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
-        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_roles WHERE rolname = '$role_ident' LIMIT 1;")"
-      if [[ "$role_exists" == "1" ]]; then
-        PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
-          -v ON_ERROR_STOP=1 -c "ALTER ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';"
-      else
-        PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
-          -v ON_ERROR_STOP=1 -c "CREATE ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';"
-      fi
+    local role_exists db_exists
+    role_exists="$(run_step_capture "DB: check role exists (system)" "$log" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      -Atc "SELECT 1 FROM pg_roles WHERE rolname = '$role_lit' LIMIT 1;")" || return 1
+    role_exists="$(printf '%s' "$role_exists" | tr -d '\r' | tail -n 1)"
+    if [[ "$role_exists" == "1" ]]; then
+      run_step "DB: alter role (system)" "$log" \
+        sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+        -c "ALTER ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';" || return 1
+    else
+      run_step "DB: create role (system)" "$log" \
+        sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+        -c "CREATE ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';" || return 1
+    fi
 
-      db_exists="$(PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
-        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_ident' LIMIT 1;")"
-      if [[ "$db_exists" != "1" ]]; then
-        PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$admin_user" \
-          -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$db_ident\" OWNER \"$role_ident\";"
-      fi
-    } 2>&1 | tee -a "$log"
+    db_exists="$(run_step_capture "DB: check database exists (system)" "$log" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")" || return 1
+    db_exists="$(printf '%s' "$db_exists" | tr -d '\r' | tail -n 1)"
+    if [[ "$db_exists" != "1" ]]; then
+      run_step "DB: create database (system)" "$log" \
+        sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+        -c "CREATE DATABASE \"$db_ident\" OWNER \"$role_ident\";" || return 1
+    fi
   else
     docker_ready "$log" || return 1
-    {
-      local role_exists db_exists
-      role_exists="$(docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
-        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_roles WHERE rolname = '$role_ident' LIMIT 1;")"
-      if [[ "$role_exists" == "1" ]]; then
-        docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
-          -v ON_ERROR_STOP=1 -c "ALTER ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';"
-      else
-        docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
-          -v ON_ERROR_STOP=1 -c "CREATE ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';"
-      fi
+    local role_exists db_exists
+    role_exists="$(run_step_capture "DB: check role exists (docker)" "$log" \
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+      -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_roles WHERE rolname = '$role_lit' LIMIT 1;")" || return 1
+    role_exists="$(printf '%s' "$role_exists" | tr -d '\r' | tail -n 1)"
+    if [[ "$role_exists" == "1" ]]; then
+      run_step "DB: alter role (docker)" "$log" \
+        docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -c "ALTER ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';" || return 1
+    else
+      run_step "DB: create role (docker)" "$log" \
+        docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -c "CREATE ROLE \"$role_ident\" LOGIN PASSWORD '$pwd_lit';" || return 1
+    fi
 
-      db_exists="$(docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
-        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_ident' LIMIT 1;")"
-      if [[ "$db_exists" != "1" ]]; then
-        docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$admin_user" \
-          -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$db_ident\" OWNER \"$role_ident\";"
-      fi
-    } 2>&1 | tee -a "$log"
+    db_exists="$(run_step_capture "DB: check database exists (docker)" "$log" \
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+      -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")" || return 1
+    db_exists="$(printf '%s' "$db_exists" | tr -d '\r' | tail -n 1)"
+    if [[ "$db_exists" != "1" ]]; then
+      run_step "DB: create database (docker)" "$log" \
+        docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+        -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$db_ident\" OWNER \"$role_ident\";" || return 1
+    fi
   fi
 }
 
@@ -1084,32 +1222,35 @@ db_list_tables() {
   } | tee -a "$log" >/dev/null
 
   if [[ "$mode" == "system" ]]; then
-    {
-      local db_exists
-      db_exists="$(sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")"
-      if [[ "$db_exists" != "1" ]]; then
-        echo "Database not found: $db"
-        exit 1
-      fi
-      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" -d "$db" \
-        -v ON_ERROR_STOP=1 -Atc \
-        "SELECT schemaname || '.' || tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1;"
-    } 2>&1 | tee -a "$log"
+    local db_exists
+    db_exists="$(run_step_capture "DB: check database exists (system)" "$log" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")" || return 1
+    db_exists="$(printf '%s' "$db_exists" | tr -d '\r' | tail -n 1)"
+    if [[ "$db_exists" != "1" ]]; then
+      run_step "DB: list tables (system)" "$log" \
+        bash -lc "echo 'Database not found: $db' && exit 1"
+      return 1
+    fi
+    run_step "DB: list tables (system)" "$log" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres -d "$db" \
+      -Atc "SELECT schemaname || '.' || tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1;" || return 1
   else
     docker_ready "$log" || return 1
-    {
-      local db_exists
-      db_exists="$(docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")"
-      if [[ "$db_exists" != "1" ]]; then
-        echo "Database not found: $db"
-        exit 1
-      fi
+    local db_exists
+    db_exists="$(run_step_capture "DB: check database exists (docker)" "$log" \
+      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
+      -v ON_ERROR_STOP=1 -Atc "SELECT 1 FROM pg_database WHERE datname = '$db_lit' LIMIT 1;")" || return 1
+    db_exists="$(printf '%s' "$db_exists" | tr -d '\r' | tail -n 1)"
+    if [[ "$db_exists" != "1" ]]; then
+      run_step "DB: list tables (docker)" "$log" \
+        bash -lc "echo 'Database not found: $db' && exit 1"
+      return 1
+    fi
+    run_step "DB: list tables (docker)" "$log" \
       docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" -d "$db" \
-        -v ON_ERROR_STOP=1 -Atc \
-        "SELECT schemaname || '.' || tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1;"
-    } 2>&1 | tee -a "$log"
+      -v ON_ERROR_STOP=1 -Atc \
+      "SELECT schemaname || '.' || tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1;" || return 1
   fi
 }
 
@@ -1131,13 +1272,17 @@ db_backup() {
     echo "Target DB: $db"
     echo "Backup file: $backup"
     echo "+ pg_dump (mode=$mode) > $backup"
-    if [[ "$mode" == "system" ]]; then
-      sudo -u "$PG_ADMIN_USER" pg_dump -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" "$db" >"$backup"
-    else
-      docker exec -e PGPASSWORD="$PG_PASSWORD" "$PG_CONTAINER" pg_dump -U "$PG_USER" "$db" >"$backup"
-    fi
-    echo "Backup complete: $backup"
-  } 2>&1 | tee -a "$log"
+  } | tee -a "$log" >/dev/null
+
+  if [[ "$mode" == "system" ]]; then
+    run_step "DB: pg_dump (system)" "$log" \
+      bash -lc "sudo -u postgres pg_dump -h '$PG_HOST' -p '$PG_PORT' -U postgres '$db' > '$backup'" || return 1
+  else
+    run_step "DB: pg_dump (docker)" "$log" \
+      bash -lc "docker exec -e PGPASSWORD='$PG_PASSWORD' '$PG_CONTAINER' pg_dump -U '$PG_USER' '$db' > '$backup'" || return 1
+  fi
+
+  echo "Backup complete: $backup" | tee -a "$log" >/dev/null
 }
 
 db_restore() {
@@ -1169,12 +1314,15 @@ db_restore() {
     echo "Target DB: $db"
     echo "Backup file: $file"
     echo "+ psql (mode=$mode) < $file"
-    if [[ "$mode" == "system" ]]; then
-      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" -d "$db" -f "$file"
-    else
-      docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" -d "$db" <"$file"
-    fi
-  } 2>&1 | tee -a "$log"
+  } | tee -a "$log" >/dev/null
+
+  if [[ "$mode" == "system" ]]; then
+    run_step "DB: restore (system)" "$log" \
+      bash -lc "sudo -u postgres psql -v ON_ERROR_STOP=1 -h '$PG_HOST' -p '$PG_PORT' -U postgres -d '$db' -f '$file'" || return 1
+  else
+    run_step "DB: restore (docker)" "$log" \
+      bash -lc "docker exec -e PGPASSWORD='$PG_PASSWORD' -i '$PG_CONTAINER' psql -v ON_ERROR_STOP=1 -U '$PG_ADMIN_USER' -d '$db' < '$file'" || return 1
+  fi
 }
 
 db_show_connections() {
@@ -1189,18 +1337,15 @@ db_show_connections() {
   } | tee -a "$log" >/dev/null
 
   if [[ "$mode" == "system" ]]; then
-    {
-      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -Atc \
-        "SELECT pid, usename, datname, client_addr, state, query_start FROM pg_stat_activity ORDER BY query_start DESC;"
-    } 2>&1 | tee -a "$log"
+    run_step "DB: active connections (system)" "$log" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      -Atc "SELECT pid, usename, datname, client_addr, state, query_start FROM pg_stat_activity ORDER BY query_start DESC;" || return 1
   else
     docker_ready "$log" || return 1
-    {
+    run_step "DB: active connections (docker)" "$log" \
       docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -Atc \
-        "SELECT pid, usename, datname, client_addr, state, query_start FROM pg_stat_activity ORDER BY query_start DESC;"
-    } 2>&1 | tee -a "$log"
+      -v ON_ERROR_STOP=1 -Atc \
+      "SELECT pid, usename, datname, client_addr, state, query_start FROM pg_stat_activity ORDER BY query_start DESC;" || return 1
   fi
 }
 
@@ -1223,18 +1368,15 @@ db_kill_connections() {
   echo "Target DB: $db" | tee -a "$log" >/dev/null
 
   if [[ "$mode" == "system" ]]; then
-    {
-      sudo -u "$PG_ADMIN_USER" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -v db="$db" -c \
-        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'db' AND pid <> pg_backend_pid();"
-    } 2>&1 | tee -a "$log"
+    run_step "DB: kill connections (system)" "$log" \
+      sudo -u postgres psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -p "$PG_PORT" -U postgres \
+      -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db_lit' AND pid <> pg_backend_pid();" || return 1
   else
     docker_ready "$log" || return 1
-    {
+    run_step "DB: kill connections (docker)" "$log" \
       docker exec -e PGPASSWORD="$PG_PASSWORD" -i "$PG_CONTAINER" psql -U "$PG_ADMIN_USER" \
-        -v ON_ERROR_STOP=1 -v db="$db" -c \
-        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'db' AND pid <> pg_backend_pid();"
-    } 2>&1 | tee -a "$log"
+      -v ON_ERROR_STOP=1 -c \
+      "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db_lit' AND pid <> pg_backend_pid();" || return 1
   fi
 }
 
