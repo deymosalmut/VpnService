@@ -1,0 +1,66 @@
+-------------------------------------------
+TASK: Postgres: docker compose up
+TIME_UTC: Пн 05 янв 2026 09:09:15 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ docker compose --env-file /opt/vpn-service/infra/postgres/.env -f /opt/vpn-service/infra/postgres/docker-compose.yml up -d
+validating /opt/vpn-service/infra/postgres/docker-compose.yml: volumes additional properties '${PG_VOLUME}' not allowed
+
+Waiting for Postgres health... (1/60) status=unknown
+Waiting for Postgres health... (2/60) status=unknown
+Waiting for Postgres health... (3/60) status=unknown
+Waiting for Postgres health... (4/60) status=unknown
+Waiting for Postgres health... (5/60) status=unknown
+Waiting for Postgres health... (6/60) status=unknown
+Waiting for Postgres health... (7/60) status=unknown
+Waiting for Postgres health... (8/60) status=unknown
+Waiting for Postgres health... (9/60) status=unknown
+Waiting for Postgres health... (10/60) status=unknown
+Waiting for Postgres health... (11/60) status=unknown
+Waiting for Postgres health... (12/60) status=unknown
+Waiting for Postgres health... (13/60) status=unknown
+Waiting for Postgres health... (14/60) status=unknown
+Waiting for Postgres health... (15/60) status=unknown
+Waiting for Postgres health... (16/60) status=unknown
+Waiting for Postgres health... (17/60) status=unknown
+Waiting for Postgres health... (18/60) status=unknown
+Waiting for Postgres health... (19/60) status=unknown
+Waiting for Postgres health... (20/60) status=unknown
+Waiting for Postgres health... (21/60) status=unknown
+Waiting for Postgres health... (22/60) status=unknown
+Waiting for Postgres health... (23/60) status=unknown
+Waiting for Postgres health... (24/60) status=unknown
+Waiting for Postgres health... (25/60) status=unknown
+Waiting for Postgres health... (26/60) status=unknown
+Waiting for Postgres health... (27/60) status=unknown
+Waiting for Postgres health... (28/60) status=unknown
+Waiting for Postgres health... (29/60) status=unknown
+Waiting for Postgres health... (30/60) status=unknown
+Waiting for Postgres health... (31/60) status=unknown
+Waiting for Postgres health... (32/60) status=unknown
+Waiting for Postgres health... (33/60) status=unknown
+Waiting for Postgres health... (34/60) status=unknown
+Waiting for Postgres health... (35/60) status=unknown
+Waiting for Postgres health... (36/60) status=unknown
+Waiting for Postgres health... (37/60) status=unknown
+Waiting for Postgres health... (38/60) status=unknown
+Waiting for Postgres health... (39/60) status=unknown
+Waiting for Postgres health... (40/60) status=unknown
+Waiting for Postgres health... (41/60) status=unknown
+Waiting for Postgres health... (42/60) status=unknown
+Waiting for Postgres health... (43/60) status=unknown
+Waiting for Postgres health... (44/60) status=unknown
+Waiting for Postgres health... (45/60) status=unknown
+Waiting for Postgres health... (46/60) status=unknown
+Waiting for Postgres health... (47/60) status=unknown
+Waiting for Postgres health... (48/60) status=unknown
+Waiting for Postgres health... (49/60) status=unknown
+Waiting for Postgres health... (50/60) status=unknown
+Waiting for Postgres health... (51/60) status=unknown
+Waiting for Postgres health... (52/60) status=unknown
+Waiting for Postgres health... (53/60) status=unknown
+Waiting for Postgres health... (54/60) status=unknown
+Waiting for Postgres health... (55/60) status=unknown
+Waiting for Postgres health... (56/60) status=unknown
+Waiting for Postgres health... (57/60) status=unknown

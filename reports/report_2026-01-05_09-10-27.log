@@ -1,0 +1,19 @@
+-------------------------------------------
+TASK: Postgres: docker compose ps
+TIME_UTC: Пн 05 янв 2026 09:10:27 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ docker compose --env-file /opt/vpn-service/infra/postgres/.env -f /opt/vpn-service/infra/postgres/docker-compose.yml ps
+validating /opt/vpn-service/infra/postgres/docker-compose.yml: volumes additional properties '${PG_VOLUME}' not allowed
+
+-------------------------------------------
+TASK: Postgres: container status
+TIME_UTC: Пн 05 янв 2026 09:10:28 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ docker inspect --format {{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}} vpnservice-postgres
+
+error: no such object: vpnservice-postgres
+
