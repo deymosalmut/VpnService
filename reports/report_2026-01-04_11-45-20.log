@@ -1,9 +1,0 @@
--------------------------------------------
-TASK: Stage 3.2: call reconcile dry-run
-TIME_UTC: Вс 04 янв 2026 11:45:20 UTC
-HOST: Vpn-Main
-REPO_ROOT: /opt/vpn-service
--------------------------------------------
-GET http://localhost:5272/api/v1/admin/wg/reconcile?iface=wg1&mode=dry-run
-HTTP 404, saved: /opt/vpn-service/reports/last_reconcile.json
-[1;33mDry-run endpoint not available yet (HTTP 404). Implement it in API to complete Stage 3.2.[0m

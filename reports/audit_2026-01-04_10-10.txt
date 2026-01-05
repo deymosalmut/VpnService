@@ -1,7 +1,0 @@
-=== ОТЧЕТ ОТ Вс 04 янв 2026 10:10:31 UTC ===
-Интерфейс: wg1
-WG Dump (masked):
-(hidden) ZYXEy5Xnr+8yTjisbjgyaLGzvDBqvPtcY6A/EFEAk0U= 51820 off
-
-Последние логи API:
--- No entries --

@@ -28,6 +28,17 @@ export PROJ="$REPO_ROOT"
 export REPORT_DIR="${REPORT_DIR:-$REPO_ROOT/reports}"
 mkdir -p "$REPORT_DIR"
 
+# ---------- Postgres (Docker) defaults (override via env) ----------
+# Compose/env expected at $PG_COMPOSE_FILE and $PG_ENV_FILE.
+export PG_CONTAINER="${PG_CONTAINER:-vpnservice-postgres}"
+export PG_DB="${PG_DB:-vpnservice}"
+export PG_USER="${PG_USER:-vpnservice}"
+export PG_PASSWORD="${PG_PASSWORD:-vpnservice_pwd}"
+export PG_PORT="${PG_PORT:-5432}"
+export PG_VOLUME="${PG_VOLUME:-vpnservice_pgdata}"
+export PG_COMPOSE_FILE="${PG_COMPOSE_FILE:-$REPO_ROOT/infra/postgres/docker-compose.yml}"
+export PG_ENV_FILE="${PG_ENV_FILE:-$REPO_ROOT/infra/postgres/.env}"
+
 # State files
 PID_FILE="$REPORT_DIR/api.pid"
 LAST_TOKEN_FILE="$REPORT_DIR/last_token.txt"
@@ -394,6 +405,168 @@ stage32_dry_run() {
   run_shell_and_log "Stage 3.2: reconcile preview (head)" "$log" "head -n 80 '$REPORT_DIR/last_reconcile.json'"
 }
 
+# ---------- Stage shortcuts ----------
+stage32_check() {
+  local log="$1"
+  api_start_bg "$log" || return 1
+  auth_and_save_token "$log" || return 1
+  stage32_dry_run "$log"
+}
+
+stage33_call() {
+  local log="$1"
+  need curl
+
+  if [[ ! -s "$LAST_TOKEN_FILE" ]]; then
+    echo "${YELLOW}No token file. Run Auth first.${NC}" | tee -a "$log" >/dev/null
+    return 1
+  fi
+
+  local token url code
+  token="$(cat "$LAST_TOKEN_FILE")"
+  url="$API_URL/api/v1/admin/wg/state?iface=$IFACE"
+
+  log_block "Stage 3.3: call wg state" "$log"
+  echo "GET $url" | tee -a "$log" >/dev/null
+
+  code="$(curl -sS -o "$REPORT_DIR/last_wg_state.json" -w "%{http_code}" \
+    "$url" -H "Authorization: Bearer $token" || true)"
+
+  echo "HTTP $code, saved: $REPORT_DIR/last_wg_state.json" | tee -a "$log" >/dev/null
+
+  if [[ "$code" != "200" ]]; then
+    echo "${YELLOW}WG state endpoint not available yet (HTTP $code).${NC}" | tee -a "$log" >/dev/null
+    return 1
+  fi
+
+  run_shell_and_log "Stage 3.3: wg state preview (first 400 chars)" "$log" \
+    "head -c 400 '$REPORT_DIR/last_wg_state.json'"
+}
+
+stage33_check() {
+  local log="$1"
+  api_start_bg "$log" || return 1
+  auth_and_save_token "$log" || return 1
+  stage33_call "$log"
+}
+
+stage3233_check_all() {
+  local log="$1"
+  api_start_bg "$log" || return 1
+  auth_and_save_token "$log" || return 1
+  stage32_dry_run "$log" || return 1
+  stage33_call "$log"
+}
+
+# ---------- Postgres (Docker) ----------
+docker_ready() {
+  local log="${1:-}"
+  need docker
+  if ! docker compose version >/dev/null 2>&1; then
+    if [[ -n "$log" ]]; then
+      echo "${RED}ERROR:${NC} docker compose is not available." | tee -a "$log" >/dev/null
+    else
+      echo "${RED}ERROR:${NC} docker compose is not available." >&2
+    fi
+    return 1
+  fi
+  if ! docker info >/dev/null 2>&1; then
+    if [[ -n "$log" ]]; then
+      echo "${RED}ERROR:${NC} docker daemon is not running." | tee -a "$log" >/dev/null
+    else
+      echo "${RED}ERROR:${NC} docker daemon is not running." >&2
+    fi
+    return 1
+  fi
+}
+
+pg_require_files() {
+  local log="${1:-}"
+  if [[ ! -f "$PG_COMPOSE_FILE" ]]; then
+    if [[ -n "$log" ]]; then
+      echo "${RED}ERROR:${NC} Missing $PG_COMPOSE_FILE" | tee -a "$log" >/dev/null
+    else
+      echo "${RED}ERROR:${NC} Missing $PG_COMPOSE_FILE" >&2
+    fi
+    return 1
+  fi
+  if [[ ! -f "$PG_ENV_FILE" ]]; then
+    if [[ -n "$log" ]]; then
+      echo "${RED}ERROR:${NC} Missing $PG_ENV_FILE" | tee -a "$log" >/dev/null
+    else
+      echo "${RED}ERROR:${NC} Missing $PG_ENV_FILE" >&2
+    fi
+    return 1
+  fi
+}
+
+pg_up() {
+  local log="$1"
+  docker_ready "$log" || return 1
+  pg_require_files "$log" || return 1
+
+  run_and_log "Postgres: docker compose up" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" up -d
+
+  local status ok=0
+  for i in {1..60}; do
+    status="$(docker inspect --format='{{.State.Health.Status}}' "$PG_CONTAINER" 2>/dev/null || true)"
+    echo "Waiting for Postgres health... ($i/60) status=${status:-unknown}" | tee -a "$log" >/dev/null
+    [[ "$status" == "healthy" ]] && ok=1 && break
+    sleep 1
+  done
+
+  if [[ "$ok" == "1" ]]; then
+    echo "Postgres is healthy." | tee -a "$log" >/dev/null
+  else
+    echo "${RED}Postgres did not become healthy.${NC}" | tee -a "$log" >/dev/null
+    run_and_log "Postgres: docker logs (tail 120)" "$log" docker logs --tail 120 "$PG_CONTAINER" || true
+    return 1
+  fi
+}
+
+pg_status() {
+  local log="$1"
+  docker_ready "$log" || return 1
+  pg_require_files "$log" || return 1
+
+  run_and_log "Postgres: docker compose ps" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" ps
+  run_and_log "Postgres: container status" "$log" \
+    docker inspect --format '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' "$PG_CONTAINER"
+}
+
+pg_logs() {
+  local log="$1"
+  docker_ready "$log" || return 1
+  run_and_log "Postgres: docker logs (tail 120)" "$log" docker logs --tail 120 "$PG_CONTAINER"
+}
+
+pg_psql() {
+  local log="$1"
+  docker_ready "$log" || return 1
+
+  log_block "Postgres: psql (interactive)" "$log"
+  echo "+ docker exec -it $PG_CONTAINER psql -U $PG_USER -d $PG_DB" | tee -a "$log" >/dev/null
+  docker exec -it "$PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB"
+  echo | tee -a "$log" >/dev/null
+}
+
+pg_down() {
+  local log="$1"
+  docker_ready "$log" || return 1
+  pg_require_files "$log" || return 1
+  run_and_log "Postgres: docker compose down" "$log" \
+    docker compose --env-file "$PG_ENV_FILE" -f "$PG_COMPOSE_FILE" down
+}
+
+pg_print_conn() {
+  local log="$1"
+  log_block "Postgres: connection string" "$log"
+  echo "ConnectionStrings__Default=Host=localhost;Port=$PG_PORT;Database=$PG_DB;Username=$PG_USER;Password=$PG_PASSWORD" \
+    | tee -a "$log" >/dev/null
+}
+
 # ---------- Diagnostics ----------
 system_diag() {
   local log="$1"
@@ -511,6 +684,19 @@ AutoCommit: $REPORT_GIT_COMMIT
 7) [Smoke] API test (Auth + WG state)
 8) [Routes] Route audit (catch AmbiguousMatch)
 9) [Auth] Login and save token
+------------------------------------------
+[DB - Postgres (Docker)]
+P1) Postgres up
+P2) Postgres status
+P3) Postgres logs
+P4) Postgres psql
+P5) Postgres down
+P6) Print Postgres connection string
+------------------------------------------
+[STAGES]
+S2) Stage 3.2 check (auth + reconcile)
+S3) Stage 3.3 check (auth + wg state)
+SA) Stage 3.2+3.3 full check
 A) [Probe] Probe WG endpoints
 B) [Stage3.2] Dry-run reconcile (if endpoint exists)
 C) [Reports] Cleanup reports (keep last N)
@@ -730,6 +916,69 @@ while true; do
       report="$(report_name)"
       header "Auth: login and save token. Report: $report"
       auth_and_save_token "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    P1|p1)
+      report="$(report_name)"
+      header "Postgres up. Report: $report"
+      pg_up "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    P2|p2)
+      report="$(report_name)"
+      header "Postgres status. Report: $report"
+      pg_status "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    P3|p3)
+      report="$(report_name)"
+      header "Postgres logs. Report: $report"
+      pg_logs "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    P4|p4)
+      report="$(report_name)"
+      header "Postgres psql. Report: $report"
+      pg_psql "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    P5|p5)
+      report="$(report_name)"
+      header "Postgres down. Report: $report"
+      pg_down "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    P6|p6)
+      report="$(report_name)"
+      header "Postgres connection string. Report: $report"
+      pg_print_conn "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    S2|s2)
+      report="$(report_name)"
+      header "Stage 3.2 check (auth + reconcile). Report: $report"
+      stage32_check "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    S3|s3)
+      report="$(report_name)"
+      header "Stage 3.3 check (auth + wg state). Report: $report"
+      stage33_check "$report" || true
+      echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    SA|sa)
+      report="$(report_name)"
+      header "Stage 3.2+3.3 full check. Report: $report"
+      stage3233_check_all "$report" || true
       echo "${GREEN}Report:${NC} $report"
       pause
       ;;

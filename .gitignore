@@ -44,9 +44,7 @@ Migrations/
 *.nuget.targets
 
 # Environment files
-.env
-.env.local
-appsettings.Development.json
+
 
 # OS
 .DS_Store
