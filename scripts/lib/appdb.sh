@@ -12,9 +12,23 @@ load_app_db_env() {
   # shellcheck disable=SC1090
   source "$env_file"
 
+
+  # ensure variables propagate to child processes (dotnet ef, psql, etc.)
+  export PG_HOST PG_PORT PG_USER PG_PASSWORD
+  # normalize DB var names (support both PG_DB and PG_DATABASE)
+  PG_DB="${PG_DB:-${PG_DATABASE:-}}"
+  PG_DATABASE="$PG_DB"
+  export PG_DB PG_DATABASE
+
+  # normalize DB var name
+  PG_DB="${PG_DB:-${PG_DATABASE:-}}"
+  PG_DATABASE="$PG_DB"
+  export PG_DB PG_DATABASE
+
+
   : "${PG_HOST:?PG_HOST missing in app-db.env}"
   : "${PG_PORT:?PG_PORT missing in app-db.env}"
-  : "${PG_DATABASE:?PG_DATABASE missing in app-db.env}"
+  : "${PG_DB:?PG_DB or PG_DATABASE missing in app-db.env}"
   : "${PG_USER:?PG_USER missing in app-db.env}"
   : "${PG_PASSWORD:?PG_PASSWORD missing in app-db.env}"
 
