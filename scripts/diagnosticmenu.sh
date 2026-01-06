@@ -207,6 +207,83 @@ test_login_as_service_user() {
   run "psql connect test" bash -lc "PGPASSWORD='${PG_PASSWORD:-vpnservice_pwd}' psql -h 127.0.0.1 -p '${pg_port}' -U '${pg_user}' -d '${pg_db}' -c 'select current_user, current_database();'"
 }
 
+stage35_quick_status() {
+  header "Stage 3.5 quick status" | tee -a "$REPORT_FILE"
+  local state="$REPORT_DIR/stage35_last_run.env"
+
+  if [[ ! -f "$state" ]]; then
+    warn "Stage 3.5 state file not found: $state"
+    log "Stage 3.5 state file not found: $state"
+    return 1
+  fi
+
+  # shellcheck disable=SC1090
+  source "$state"
+
+  local desired="${STAGE35_DESIRED_FILE:-}"
+  local actual="${STAGE35_ACTUAL_FILE:-}"
+  local diff="${STAGE35_DIFF_FILE:-}"
+  local plan="${STAGE35_PLAN_FILE:-}"
+
+  if [[ -n "$desired" && -f "$desired" ]]; then
+    ok "Desired file: $desired"
+    log "Desired file: $desired"
+  elif [[ -n "$desired" ]]; then
+    warn "Desired file missing: $desired"
+    log "Desired file missing: $desired"
+  else
+    warn "Desired file not recorded."
+    log "Desired file not recorded."
+  fi
+
+  if [[ -n "$actual" && -f "$actual" ]]; then
+    ok "Actual file: $actual"
+    log "Actual file: $actual"
+  elif [[ -n "$actual" ]]; then
+    warn "Actual file missing: $actual"
+    log "Actual file missing: $actual"
+  else
+    warn "Actual file not recorded."
+    log "Actual file not recorded."
+  fi
+
+  if [[ -n "$diff" && -f "$diff" ]]; then
+    ok "Diff file: $diff"
+    log "Diff file: $diff"
+  elif [[ -n "$diff" ]]; then
+    warn "Diff file missing: $diff"
+    log "Diff file missing: $diff"
+  else
+    warn "Diff file not recorded."
+    log "Diff file not recorded."
+  fi
+
+  if [[ -n "$plan" && -f "$plan" ]]; then
+    ok "Plan file: $plan"
+    log "Plan file: $plan"
+  elif [[ -n "$plan" ]]; then
+    warn "Plan file missing: $plan"
+    log "Plan file missing: $plan"
+  else
+    warn "Plan file not recorded."
+    log "Plan file not recorded."
+  fi
+
+  local add="${STAGE35_ADD_COUNT:-}"
+  local rem="${STAGE35_REMOVE_COUNT:-}"
+  local upd="${STAGE35_UPDATE_COUNT:-}"
+  local dis="${STAGE35_DISABLE_COUNT:-}"
+  local total="${STAGE35_TOTAL_CHANGES:-}"
+
+  if [[ -n "$total" ]]; then
+    ok "Diff counts: ADD=$add REMOVE=$rem UPDATE=$upd DISABLE=$dis TOTAL=$total"
+    log "Diff counts: ADD=$add REMOVE=$rem UPDATE=$upd DISABLE=$dis TOTAL=$total"
+  else
+    warn "Diff counts not recorded."
+    log "Diff counts not recorded."
+  fi
+}
+
 # ---------- Menu ----------
 show_menu() {
   echo
@@ -223,6 +300,7 @@ show_menu() {
   echo "7) Test login as vpnservice (psql using password)"
   echo "8) Offer git commit/push report (yes/no)"
   echo "10) EF migrations status (source vs applied)"
+  echo "11) Stage 3.5 quick status (read-only)"
   echo "9) Run ALL (1 -> 7) and then offer commit"
   echo "0) Exit"
   echo "================================================"
@@ -250,6 +328,9 @@ main() {
         10)
           run "EF migrations status (stage3)" bash -lc "cd '$REPO_ROOT' && scripts/stage3/stage3_04_migrations_check.sh"
           ;;
+      11)
+        stage35_quick_status
+        ;;
       9)
         check_paths_and_perms || true
         fix_reports_permissions || true
