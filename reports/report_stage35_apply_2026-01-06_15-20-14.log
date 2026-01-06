@@ -1,0 +1,57 @@
+----------------------------------------------------------------
+>>> Stage 3.5 — RECONCILE APPLY (controlled)
+----------------------------------------------------------------
+API_URL=http://localhost:5272
+IFACE=wg1
+LAST_ENV=/opt/vpn-service/reports/stage35_last_run.env
+TOKEN_FILE=/opt/vpn-service/reports/last_token.txt
+----------------------------------------------------------------
+>>> Plan summary
+----------------------------------------------------------------
+PLAN_FILE=/opt/vpn-service/reports/stage35_plan_2026-01-06_15-06-42.tsv
+ADD=1 DEL=0
+----------------------------------------------------------------
+>>> Plan preview (top 50)
+----------------------------------------------------------------
++ CMD: bash -lc head -n 50 '/opt/vpn-service/reports/stage35_plan_2026-01-06_15-06-42.tsv' || true
+ADD	QJh6h5iG80A3kvfmP46RvSR1ddBDOWV+6lMU04tNUBY
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> SAFETY GATE
+----------------------------------------------------------------
+This will call: POST http://localhost:5272/api/v1/admin/wg/reconcile (apply changes to IFACE=wg1)
+Type APPLY to continue.
+----------------------------------------------------------------
+>>> Reconcile APPLY (API)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> POST /api/v1/admin/wg/reconcile
+----------------------------------------------------------------
++ CMD: bash -lc 
+    set -Eeuo pipefail
+    curl -fsS -X POST 'http://localhost:5272/api/v1/admin/wg/reconcile'       -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6Ijk5NmJjN2ZkLThmZjctNGUzOS05MzhjLTg5YTgwYjNhMGM3MyIsImV4cCI6MTc2NzYwNjg4NSwiaXNzIjoiVnBuU2VydmljZSIsImF1ZCI6InZwbi1hcGkifQ.0PG-qRe74Y80BkRh56lGJIjoi99YE4Es8dIPJMoArmg'       -H 'Content-Type: application/json'       -o '/opt/vpn-service/reports/stage35_reconcile_apply_2026-01-06_15-20-14.json'
+    echo 'APPLY_JSON=/opt/vpn-service/reports/stage35_reconcile_apply_2026-01-06_15-20-14.json'
+    # echo body preview
+    head -c 800 '/opt/vpn-service/reports/stage35_reconcile_apply_2026-01-06_15-20-14.json' || true
+    echo
+  
+curl: (22) The requested URL returned error: 405
+STATUS: FAIL (exit=22)
+----------------------------------------------------------------
+>>> Post-check: WG state (read-only)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> GET /api/v1/admin/wg/state
+----------------------------------------------------------------
++ CMD: bash -lc 
+    set -Eeuo pipefail
+    curl -fsS 'http://localhost:5272/api/v1/admin/wg/state'       -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6Ijk5NmJjN2ZkLThmZjctNGUzOS05MzhjLTg5YTgwYjNhMGM3MyIsImV4cCI6MTc2NzYwNjg4NSwiaXNzIjoiVnBuU2VydmljZSIsImF1ZCI6InZwbi1hcGkifQ.0PG-qRe74Y80BkRh56lGJIjoi99YE4Es8dIPJMoArmg'       -o '/opt/vpn-service/reports/stage35_wg_state_2026-01-06_15-20-14.json'
+    echo 'WG_STATE_JSON=/opt/vpn-service/reports/stage35_wg_state_2026-01-06_15-20-14.json'
+    head -c 800 '/opt/vpn-service/reports/stage35_wg_state_2026-01-06_15-20-14.json' || true
+    echo
+  
+curl: (22) The requested URL returned error: 401
+STATUS: FAIL (exit=22)
+----------------------------------------------------------------
+>>> DONE
+----------------------------------------------------------------

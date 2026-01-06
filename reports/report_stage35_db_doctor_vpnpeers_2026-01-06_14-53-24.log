@@ -1,0 +1,54 @@
+----------------------------------------------------------------
+>>> Stage 3.5 — DB DOCTOR: VpnPeers schema (read-only)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> Load app DB env
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    echo "PG_DATABASE=$PG_DATABASE PG_USER=$PG_USER PG_HOST=$PG_HOST PG_PORT=$PG_PORT PG_PASSWORD=${PG_PASSWORD:+SET}"
+  
+PG_DATABASE=vpnservice PG_USER=vpnservice PG_HOST=127.0.0.1 PG_PORT=5432 PG_PASSWORD=SET
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Describe public."VpnPeers" columns (name|type|nullable|default)
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    psql_app -Atc "
+      select
+        column_name||'|'||data_type||'|'||is_nullable||'|'||coalesce(column_default,'')
+      from information_schema.columns
+      where table_schema='public' and table_name='VpnPeers'
+      order by ordinal_position;
+    "
+  
+Id|uuid|NO|
+PublicKey|character varying|NO|
+AssignedIp|character varying|NO|
+Status|integer|NO|
+CreatedAt|timestamp with time zone|NO|CURRENT_TIMESTAMP
+UpdatedAt|timestamp with time zone|YES|
+VpnServerId|uuid|NO|
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Check extensions (uuid-ossp, pgcrypto) [best-effort]
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    psql_app -Atc "
+      select extname from pg_extension
+      where extname in ('uuid-ossp','pgcrypto')
+      order by extname;
+    " || true
+  
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> DONE
+----------------------------------------------------------------

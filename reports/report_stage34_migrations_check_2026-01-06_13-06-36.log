@@ -1,0 +1,101 @@
+----------------------------------------------------------------
+>>> Stage 3.4 — MIGRATIONS CHECK
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> Load app DB env (normalize PG_DB/PG_DATABASE)
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    echo "PG_HOST=$PG_HOST PG_PORT=$PG_PORT PG_DATABASE=$PG_DATABASE PG_USER=$PG_USER PG_PASSWORD=${PG_PASSWORD:+SET}"
+  
+PG_HOST=127.0.0.1 PG_PORT=5432 PG_DATABASE=vpnservice PG_USER=vpnservice PG_PASSWORD=SET
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> dotnet ef --version
+----------------------------------------------------------------
++ CMD: bash -lc cd '/opt/vpn-service' && dotnet ef --version
+Entity Framework Core .NET Command-line Tools
+9.0.11
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> DB app connect: SELECT 1
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    psql_app -Atc 'select 1;'
+  
+1
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> EF migrations list (source)
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    dotnet ef migrations list --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --no-build
+  
+Unable to create a 'DbContext' of type 'RuntimeType'. The exception 'PG_PASSWORD is empty. Provide PG_PASSWORD for design-time migrations.' was thrown while attempting to create an instance. For the different patterns supported at design time, see https://go.microsoft.com/fwlink/?linkid=851728
+STATUS: FAIL (exit=1)
+----------------------------------------------------------------
+>>> DB applied migrations (__EFMigrationsHistory) [best-effort]
+----------------------------------------------------------------
+ERROR:  column "migrationid" does not exist
+СТРОКА 1: select migrationid from "__EFMigrationsHistory" order by mig...
+                 ^
+ПОДСКАЗКА:  Perhaps you meant to reference the column "__EFMigrationsHistory.MigrationId".
+STATUS: WARN (history missing/unreadable; treating as empty)
+----------------------------------------------------------------
+>>> Compute pending + generate idempotent SQL if needed
+----------------------------------------------------------------
++ CMD: bash -lc 
+    set -Eeuo pipefail
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+
+    src=/tmp/ef_src_$$.txt
+    db=/tmp/ef_db_$$.txt
+    pending=/tmp/ef_pending_$$.txt
+
+    dotnet ef migrations list --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --no-build       | sed -n 's/^\([0-9]\{14\}.*\)$/\1/p' > "$src"
+
+    (psql_app -Atc 'select migrationid from "__EFMigrationsHistory" order by migrationid;' || true)       | sed '/^\s*$/d' > "$db"
+
+    comm -23 <(sort "$src") <(sort "$db") > "$pending" || true
+
+    echo "SOURCE_COUNT=$(wc -l <"$src" | tr -d ' ')"
+    echo "APPLIED_COUNT=$(wc -l <"$db" | tr -d ' ')"
+    echo "PENDING_COUNT=$(wc -l <"$pending" | tr -d ' ')"
+
+    if [[ -s "$pending" ]]; then
+      echo
+      echo "Pending migrations:"
+      cat "$pending"
+
+      out_sql="/opt/vpn-service/reports/ef_idempotent_2026-01-06_13-06-40.sql"
+      dotnet ef migrations script --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --no-build --idempotent --output "$out_sql"
+      echo "IDEMPOTENT_SQL=$out_sql"
+      exit 20
+    fi
+  
+ERROR:  column "migrationid" does not exist
+СТРОКА 1: select migrationid from "__EFMigrationsHistory" order by mig...
+                 ^
+ПОДСКАЗКА:  Perhaps you meant to reference the column "__EFMigrationsHistory.MigrationId".
+SOURCE_COUNT=1
+APPLIED_COUNT=0
+PENDING_COUNT=1
+
+Pending migrations:
+20260106130133_Initial_20260106_130108
+IDEMPOTENT_SQL=/opt/vpn-service/reports/ef_idempotent_2026-01-06_13-06-40.sql
+STATUS: FAIL (exit=20)
+SUMMARY: MIGRATIONS_PENDING=NO
+----------------------------------------------------------------
+>>> DONE
+----------------------------------------------------------------
+----------------------------------------------------------------
+Report: /opt/vpn-service/reports/report_stage34_migrations_check_2026-01-06_13-06-36.log

@@ -1,0 +1,176 @@
+----------------------------------------------------------------
+>>> Stage 3.4 — EF FIX (design-time)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> Precheck: infrastructure csproj exists
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    test -f './VpnService.Infrastructure/VpnService.Infrastructure.csproj'
+  
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Load app DB env (normalize)
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    echo "PG_HOST=$PG_HOST PG_PORT=$PG_PORT PG_DATABASE=$PG_DATABASE PG_USER=$PG_USER PG_PASSWORD=${PG_PASSWORD:+SET}"
+  
+PG_HOST=127.0.0.1 PG_PORT=5432 PG_DATABASE=vpnservice PG_USER=vpnservice PG_PASSWORD=SET
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Persist APP_CSPROJ=Infrastructure
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    mkdir -p 'infra/local'
+    cat > 'infra/local/app.env' <<EOT
+# local app settings (gitignored)
+export APP_CSPROJ="./VpnService.Infrastructure/VpnService.Infrastructure.csproj"
+EOT
+  
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Patch csproj: ensure Microsoft.EntityFrameworkCore.Design referenced
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> Add EFCore.Design package reference if missing
+----------------------------------------------------------------
++ CMD: bash -lc 
+    set -Eeuo pipefail
+    cd '/opt/vpn-service'
+    f='./VpnService.Infrastructure/VpnService.Infrastructure.csproj'
+
+    if grep -q 'Microsoft.EntityFrameworkCore.Design' "$f"; then
+      echo 'OK already references Microsoft.EntityFrameworkCore.Design'
+      exit 0
+    fi
+
+    # Insert into first ItemGroup that has PackageReference, otherwise create new ItemGroup before closing Project.
+    python3 - <<'PY'
+from pathlib import Path
+import re
+
+p = Path('./VpnService.Infrastructure/VpnService.Infrastructure.csproj')
+s = p.read_text(encoding='utf-8', errors='ignore')
+
+pkg = '    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.11">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+'
+
+if 'Microsoft.EntityFrameworkCore.Design' in s:
+    print('already present')
+    raise SystemExit(0)
+
+# Try to inject into an existing ItemGroup containing PackageReference
+m = re.search(r'(<ItemGroup>\s*(?:.|
+)*?<PackageReference[^>]+>)(?:.|
+)*?</ItemGroup>', s)
+if m:
+    # inject before closing </ItemGroup> of that first match
+    start = m.start()
+    end = m.end()
+    block = s[start:end]
+    block2 = re.sub(r'(</ItemGroup>)', pkg + r'\1', block, count=1)
+    s = s[:start] + block2 + s[end:]
+else:
+    # create new ItemGroup before </Project>
+    s = re.sub(r'(</Project>)', f'  <ItemGroup>
+{pkg}  </ItemGroup>
+\1', s, count=1)
+
+p.write_text(s, encoding='utf-8')
+print('patched', p)
+PY
+  
+OK already references Microsoft.EntityFrameworkCore.Design
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Add design-time DbContext factory (no DI required)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> Create VpnDbContextFactory.cs if missing
+----------------------------------------------------------------
++ CMD: bash -lc 
+    set -Eeuo pipefail
+    cd '/opt/vpn-service'
+
+    if [[ -f './VpnService.Infrastructure/Persistence/VpnDbContextFactory.cs' ]]; then
+      echo 'OK factory already exists:' './VpnService.Infrastructure/Persistence/VpnDbContextFactory.cs'
+      exit 0
+    fi
+
+    mkdir -p "./VpnService.Infrastructure/Persistence"
+
+    cat > './VpnService.Infrastructure/Persistence/VpnDbContextFactory.cs' <<'CS'
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
+using VpnService.Infrastructure.Persistence;
+
+namespace VpnService.Infrastructure.Persistence
+{
+    /// <summary>
+    /// Design-time factory for EF Core tools (dotnet ef).
+    /// Keeps migrations workable without relying on DI/host startup.
+    /// </summary>
+    public sealed class VpnDbContextFactory : IDesignTimeDbContextFactory<VpnDbContext>
+    {
+        public VpnDbContext CreateDbContext(string[] args)
+        {
+            var host = GetEnv("PG_HOST", "127.0.0.1");
+            var port = GetEnv("PG_PORT", "5432");
+            var db   = GetEnv("PG_DATABASE", GetEnv("PG_DB", "vpnservice"));
+            var user = GetEnv("PG_USER", "vpnservice");
+            var pass = GetEnv("PG_PASSWORD", "");
+
+            if (string.IsNullOrWhiteSpace(pass))
+                throw new InvalidOperationException("PG_PASSWORD is empty. Provide PG_PASSWORD for design-time migrations.");
+
+            var conn = $"Host={host};Port={port};Database={db};Username={user};Password={pass};Include Error Detail=true";
+
+            var options = new DbContextOptionsBuilder<VpnDbContext>()
+                .UseNpgsql(conn)
+                .Options;
+
+            return new VpnDbContext(options);
+        }
+
+        private static string GetEnv(string key, string fallback)
+            => Environment.GetEnvironmentVariable(key) is { Length: > 0 } v ? v : fallback;
+    }
+}
+CS
+
+    echo 'OK created:' './VpnService.Infrastructure/Persistence/VpnDbContextFactory.cs'
+  
+OK created: ./VpnService.Infrastructure/Persistence/VpnDbContextFactory.cs
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Verify EF migrations list now works (with env from app-db.env)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> dotnet ef migrations list (Infrastructure) using env
+----------------------------------------------------------------
++ CMD: bash -lc 
+    set -Eeuo pipefail
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    dotnet ef migrations list --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj'
+  
+Build started...
+Build succeeded.
+Failed executing DbCommand (18ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+No migrations were found.
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> DONE
+----------------------------------------------------------------

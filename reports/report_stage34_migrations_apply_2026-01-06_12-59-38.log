@@ -1,0 +1,58 @@
+----------------------------------------------------------------
+>>> Stage 3.4 — MIGRATIONS APPLY (controlled)
+----------------------------------------------------------------
+REPO_ROOT=/opt/vpn-service
+REPORT_FILE=/opt/vpn-service/reports/report_stage34_migrations_apply_2026-01-06_12-59-38.log
+CTX=VpnDbContext
+
+----------------------------------------------------------------
+>>> dotnet ef --version
+----------------------------------------------------------------
+CMD: bash -lc cd '/opt/vpn-service' && dotnet ef --version
+Entity Framework Core .NET Command-line Tools
+9.0.11
+STATUS: 0
+----------------------------------------------------------------
+>>> DB app connect: SELECT 1
+----------------------------------------------------------------
+CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    psql_app -Atc 'select 1;'
+  
+1
+STATUS: 0
+----------------------------------------------------------------
+>>> SAFETY GATE
+----------------------------------------------------------------
+Target DB: vpnservice @ 127.0.0.1:5432 user=vpnservice
+Project: ./VpnService.Infrastructure/VpnService.Infrastructure.csproj
+Context: VpnDbContext
+Type APPLY to continue.
+----------------------------------------------------------------
+>>> EF database update (apply migrations)
+----------------------------------------------------------------
+CMD: bash -lc 
+    set -Eeuo pipefail
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    CONN="$(app_conn_str)"
+    dotnet ef database update --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --context 'VpnDbContext' --no-build --connection "$CONN"
+  
+Failed executing DbCommand (30ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+System.InvalidOperationException: An error was generated for warning 'Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning': The model for context 'VpnDbContext' has pending changes. Add a new migration before updating the database. This exception can be suppressed or logged by passing event ID 'RelationalEventId.PendingModelChangesWarning' to the 'ConfigureWarnings' method in 'DbContext.OnConfiguring' or 'AddDbContext'.
+   at Microsoft.EntityFrameworkCore.Diagnostics.EventDefinition`1.Log[TLoggerCategory](IDiagnosticsLogger`1 logger, TParam arg)
+   at Microsoft.EntityFrameworkCore.Diagnostics.RelationalLoggerExtensions.PendingModelChangesWarning(IDiagnosticsLogger`1 diagnostics, Type contextType)
+   at Microsoft.EntityFrameworkCore.Migrations.Internal.Migrator.Migrate(String targetMigration)
+   at Npgsql.EntityFrameworkCore.PostgreSQL.Migrations.Internal.NpgsqlMigrator.Migrate(String targetMigration)
+   at Microsoft.EntityFrameworkCore.Design.Internal.MigrationsOperations.UpdateDatabase(String targetMigration, String connectionString, String contextType)
+   at Microsoft.EntityFrameworkCore.Design.OperationExecutor.UpdateDatabaseImpl(String targetMigration, String connectionString, String contextType)
+   at Microsoft.EntityFrameworkCore.Design.OperationExecutor.UpdateDatabase.<>c__DisplayClass0_0.<.ctor>b__0()
+   at Microsoft.EntityFrameworkCore.Design.OperationExecutor.OperationBase.Execute(Action action)
+An error was generated for warning 'Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning': The model for context 'VpnDbContext' has pending changes. Add a new migration before updating the database. This exception can be suppressed or logged by passing event ID 'RelationalEventId.PendingModelChangesWarning' to the 'ConfigureWarnings' method in 'DbContext.OnConfiguring' or 'AddDbContext'.
+STATUS: 1

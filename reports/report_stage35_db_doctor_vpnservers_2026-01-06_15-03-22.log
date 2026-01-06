@@ -1,0 +1,48 @@
+----------------------------------------------------------------
+>>> Stage 3.5 — DB DOCTOR: VpnServers schema + count (read-only)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> Load app DB env
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    echo "PG_DATABASE=$PG_DATABASE PG_USER=$PG_USER PG_HOST=$PG_HOST PG_PORT=$PG_PORT PG_PASSWORD=${PG_PASSWORD:+SET}"
+  
+PG_DATABASE=vpnservice PG_USER=vpnservice PG_HOST=127.0.0.1 PG_PORT=5432 PG_PASSWORD=SET
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Describe public."VpnServers" columns (name|type|nullable|default)
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    psql_app -Atc "
+      select column_name||'|'||data_type||'|'||is_nullable||'|'||coalesce(column_default,'')
+      from information_schema.columns
+      where table_schema='public' and table_name='VpnServers'
+      order by ordinal_position;
+    "
+  
+Id|uuid|NO|
+Name|character varying|NO|
+Gateway|character varying|NO|
+Network|character varying|NO|
+CreatedAt|timestamp with time zone|NO|CURRENT_TIMESTAMP
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Count rows in public."VpnServers"
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    psql_app -Atc 'select count(*) from public."VpnServers";'
+  
+0
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> DONE
+----------------------------------------------------------------

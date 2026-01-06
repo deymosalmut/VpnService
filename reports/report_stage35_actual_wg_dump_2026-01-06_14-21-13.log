@@ -1,0 +1,21 @@
+----------------------------------------------------------------
+>>> Stage 3.5 — ACTUAL (WG) dump (read-only)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> Export actual TSV (pub<TAB>allowed<TAB>endpoint<TAB>keepalive<TAB>enabled=1)
+----------------------------------------------------------------
+OUT=/opt/vpn-service/reports/stage35_actual_2026-01-06_14-21-13.tsv
+----------------------------------------------------------------
+>>> wg dump -> tsv
+----------------------------------------------------------------
++ CMD: bash -lc 
+    set -Eeuo pipefail
+    wg show 'wg1' dump | tail -n +2 | awk -v OFS=$'	' 'NF>=5{print $1,$4,$3,$5,1}' > '/opt/vpn-service/reports/stage35_actual_2026-01-06_14-21-13.tsv'
+    wc -l '/opt/vpn-service/reports/stage35_actual_2026-01-06_14-21-13.tsv'
+  
+0 /opt/vpn-service/reports/stage35_actual_2026-01-06_14-21-13.tsv
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Summary
+----------------------------------------------------------------
+ACTUAL_FILE=/opt/vpn-service/reports/stage35_actual_2026-01-06_14-21-13.tsv

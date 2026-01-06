@@ -1,0 +1,102 @@
+----------------------------------------------------------------
+>>> Stage 3.4 — RECREATE INITIAL MIGRATION (PendingModelChanges fix)
+----------------------------------------------------------------
+REPO_ROOT=/opt/vpn-service
+CTX=VpnDbContext
+OUT_DIR=Migrations
+NEW_MIG_NAME=Initial_20260106_130108
+
+----------------------------------------------------------------
+>>> dotnet ef --version
+----------------------------------------------------------------
+CMD: bash -lc cd '/opt/vpn-service' && dotnet ef --version
+Entity Framework Core .NET Command-line Tools
+9.0.11
+STATUS: 0
+----------------------------------------------------------------
+>>> Current migrations files in Migrations (for visibility)
+----------------------------------------------------------------
+total 32
+drwxr-xr-x  2 root vpnops 4096 янв  6 12:51 .
+drwxr-xr-x 10 root vpnops 4096 янв  6 12:51 ..
+-rw-r--r--  1 root vpnops 4994 янв  6 12:51 20260106125159_Initial_20260106_125129.cs
+-rw-r--r--  1 root vpnops 5744 янв  6 12:51 20260106125159_Initial_20260106_125129.Designer.cs
+-rw-r--r--  1 root vpnops 5623 янв  6 12:51 VpnDbContextModelSnapshot.cs
+----------------------------------------------------------------
+>>> SAFETY GATE
+----------------------------------------------------------------
+This will REMOVE the last migration and DELETE migration files in Migrations, then CREATE a fresh initial migration.
+Project: ./VpnService.Infrastructure/VpnService.Infrastructure.csproj
+Context: VpnDbContext
+Type RECREATE to continue.
+----------------------------------------------------------------
+>>> dotnet ef migrations remove (force)
+----------------------------------------------------------------
+CMD: bash -lc 
+    set -Eeuo pipefail
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    dotnet ef migrations remove --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --context 'VpnDbContext' --force
+  
+Build started...
+Build succeeded.
+Failed executing DbCommand (23ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+Removing migration '20260106125159_Initial_20260106_125129'.
+Removing model snapshot.
+Done.
+STATUS: 0
+----------------------------------------------------------------
+>>> Wipe migrations folder (Infrastructure/Migrations) except keep dir
+----------------------------------------------------------------
+CMD: bash -lc 
+    set -Eeuo pipefail
+    cd '/opt/vpn-service'
+    dir='./VpnService.Infrastructure/Migrations'
+    if [[ -d "$dir" ]]; then
+      find "$dir" -type f -name '*.cs' -delete
+      echo "OK wiped: $dir/*.cs"
+    else
+      mkdir -p "$dir"
+      echo "OK created: $dir"
+    fi
+  
+OK wiped: ./VpnService.Infrastructure/Migrations/*.cs
+STATUS: 0
+----------------------------------------------------------------
+>>> dotnet ef migrations add Initial_20260106_130108 (fresh)
+----------------------------------------------------------------
+CMD: bash -lc 
+    set -Eeuo pipefail
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    dotnet ef migrations add 'Initial_20260106_130108' --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --context 'VpnDbContext' --output-dir 'Migrations'
+  
+Build started...
+Build succeeded.
+Done. To undo this action, use 'ef migrations remove'
+STATUS: 0
+----------------------------------------------------------------
+>>> dotnet ef migrations list (after)
+----------------------------------------------------------------
+CMD: bash -lc 
+    set -Eeuo pipefail
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    dotnet ef migrations list --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --context 'VpnDbContext' --no-build
+  
+Failed executing DbCommand (32ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+No migrations were found.
+STATUS: 0
+----------------------------------------------------------------
+>>> DONE
+----------------------------------------------------------------
+Done. Report saved: /opt/vpn-service/reports/report_stage34_migrations_recreate_initial_2026-01-06_13-01-08.log
