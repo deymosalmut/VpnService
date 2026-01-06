@@ -1526,6 +1526,8 @@ S2) Stage 3.2 check (auth + reconcile)
 S3) Stage 3.3 check (auth + wg state)
 SA) Stage 3.2+3.3 full check
 A) [Probe] Probe WG endpoints
+34) Stage 3.4 — Migrations CHECK (DB + EF)
+35) Stage 3.4 — Migrations APPLY (controlled)
 B) [Stage3.2] Dry-run reconcile (if endpoint exists)
 C) [Reports] Cleanup reports (keep last N)
 R) [Sync] Сбор отчета и отправка на Windows
@@ -1899,6 +1901,22 @@ while true; do
       header "Stage 3.2+3.3 full check. Report: $report"
       stage3233_check_all "$report" || true
       echo "${GREEN}Report:${NC} $report"
+      pause
+      ;;
+    34)
+      report="$(report_name)"
+      header "Stage 3.4 — Migrations CHECK (DB + EF). Report: $report"
+      run_shell_and_log "Stage 3.4: migrations check" "$report" "cd '$REPO_ROOT' && scripts/stage3/stage3_04_migrations_check.sh" || true
+      echo "${GREEN}Report:${NC} $report"
+      git_commit_report_if_enabled "$report" || true
+      pause
+      ;;
+    35)
+      report="$(report_name)"
+      header "Stage 3.4 — Migrations APPLY (controlled). Report: $report"
+      run_shell_and_log "Stage 3.4: migrations apply" "$report" "cd '$REPO_ROOT' && scripts/stage3/stage3_04_migrations_apply.sh" || true
+      echo "${GREEN}Report:${NC} $report"
+      git_commit_report_if_enabled "$report" || true
       pause
       ;;
     A|a)

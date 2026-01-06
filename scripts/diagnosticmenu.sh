@@ -222,6 +222,7 @@ show_menu() {
   echo "6) DB bootstrap (create role/db vpnservice idempotent)"
   echo "7) Test login as vpnservice (psql using password)"
   echo "8) Offer git commit/push report (yes/no)"
+  echo "10) EF migrations status (source vs applied)"
   echo "9) Run ALL (1 -> 7) and then offer commit"
   echo "0) Exit"
   echo "================================================"
@@ -246,6 +247,9 @@ main() {
       6) db_bootstrap_vpnservice ;;
       7) test_login_as_service_user ;;
       8) git_commit_report_interactive "$REPORT_FILE" "diagnosticmenu" ;;
+        10)
+          run "EF migrations status (stage3)" bash -lc "cd '$REPO_ROOT' && scripts/stage3/stage3_04_migrations_check.sh"
+          ;;
       9)
         check_paths_and_perms || true
         fix_reports_permissions || true
