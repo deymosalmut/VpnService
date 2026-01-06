@@ -1,0 +1,83 @@
+>>> Stage 3.4 Preflight (A): DB app connect + migrations precheck
+TIME_UTC: Вт 06 янв 2026 12:35:48 UTC
+HOST: Vpn-Main
+USER: root
+REPO_ROOT: /opt/vpn-service
+REPORT_FILE: /opt/vpn-service/reports/report_stage34_preflight_2026-01-06_12-35-48.log
+
+API_URL: http://localhost:5272
+IFACE: wg1
+
+DB (APP) PG_HOST=127.0.0.1 PG_PORT=5432 PG_DB=vpnservice PG_USER=vpnservice PG_PASSWORD=vp***
+
+----------------------------------------------------------------
+>>> API: health
+----------------------------------------------------------------
+CMD: bash -lc curl -fsS 'http://localhost:5272/health'
+HealthySTATUS: 0
+OK API health reachable.
+----------------------------------------------------------------
+>>> WG: show dump (first 5 lines)
+----------------------------------------------------------------
+CMD: bash -lc wg show 'wg1' dump | head -n 5
+oPRJJkT7yzF4bx1JuLtnKfQrQLfiJ3NhIkGUt+8Py2k=	ZYXEy5Xnr+8yTjisbjgyaLGzvDBqvPtcY6A/EFEAk0U=	51820	off
+STATUS: 0
+----------------------------------------------------------------
+>>> DB (system/socket): select 1
+----------------------------------------------------------------
+CMD: bash -lc sudo -u postgres psql -v ON_ERROR_STOP=1 -Atc 'select 1;'
+1
+STATUS: 0
+OK DB admin socket access OK.
+----------------------------------------------------------------
+>>> DB (app/tcp): select 1
+----------------------------------------------------------------
+CMD: bash -lc PGPASSWORD='vpnservice_pwd_20260106_114545' psql -h '127.0.0.1' -p '5432' -U 'vpnservice' -d 'vpnservice' -v ON_ERROR_STOP=1 -Atc 'select 1;'
+1
+STATUS: 0
+OK DB app connection OK.
+----------------------------------------------------------------
+>>> dotnet: info (top)
+----------------------------------------------------------------
+CMD: bash -lc dotnet --info | sed -n '1,25p'
+ПАКЕТ SDK ДЛЯ .NET:
+ Version:           9.0.203
+ Commit:            dc7acfa194
+ Workload version:  9.0.200-manifests.9df47798
+ MSBuild version:   17.13.20+a4ef1e90f
+
+Среда выполнения:
+ OS Name:     ubuntu
+ OS Version:  24.04
+ OS Platform: Linux
+ RID:         linux-x64
+ Base Path:   /usr/share/dotnet/sdk/9.0.203/
+
+Установленные рабочие нагрузки .NET:
+Нет установленных рабочих нагрузок для отображения.
+Настроено на использование loose manifests при установке новых манифестов.
+
+Host:
+  Version:      9.0.4
+  Architecture: x64
+  Commit:       f57e6dc747
+
+.NET SDKs installed:
+  8.0.416 [/usr/share/dotnet/sdk]
+  9.0.203 [/usr/share/dotnet/sdk]
+STATUS: 0
+----------------------------------------------------------------
+>>> dotnet: ef (local tool) presence (WARN-only)
+----------------------------------------------------------------
+CMD: bash -lc cd '/opt/vpn-service' && dotnet ef --version
+Entity Framework Core .NET Command-line Tools
+9.0.11
+STATUS: 0
+OK dotnet ef available.
+
+----------------------------------------------------------------
+>>> Summary
+----------------------------------------------------------------
+OK Stage 3.4 preflight PASSED.
+
+Done. Report saved: /opt/vpn-service/reports/report_stage34_preflight_2026-01-06_12-35-48.log

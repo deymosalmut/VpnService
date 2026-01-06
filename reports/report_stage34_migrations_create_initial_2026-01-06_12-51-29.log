@@ -1,0 +1,62 @@
+----------------------------------------------------------------
+>>> Stage 3.4 — CREATE INITIAL MIGRATION (controlled)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> Load app DB env (normalize)
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    echo "PG_HOST=$PG_HOST PG_PORT=$PG_PORT PG_DATABASE=$PG_DATABASE PG_USER=$PG_USER PG_PASSWORD=${PG_PASSWORD:+SET}"
+  
+PG_HOST=127.0.0.1 PG_PORT=5432 PG_DATABASE=vpnservice PG_USER=vpnservice PG_PASSWORD=SET
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> dotnet ef --version
+----------------------------------------------------------------
++ CMD: bash -lc cd '/opt/vpn-service' && dotnet ef --version
+Entity Framework Core .NET Command-line Tools
+9.0.11
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> EF migrations list (before)
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    dotnet ef migrations list --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --no-build
+  
+Unable to create a 'DbContext' of type 'RuntimeType'. The exception 'PG_PASSWORD is empty. Provide PG_PASSWORD for design-time migrations.' was thrown while attempting to create an instance. For the different patterns supported at design time, see https://go.microsoft.com/fwlink/?linkid=851728
+STATUS: FAIL (exit=1)
+----------------------------------------------------------------
+>>> SAFETY GATE
+----------------------------------------------------------------
+This will CREATE a new migration in repo for project: ./VpnService.Infrastructure/VpnService.Infrastructure.csproj
+Migration name: Initial_20260106_125129
+Type CREATE to continue.
+----------------------------------------------------------------
+>>> dotnet ef migrations add Initial_20260106_125129
+----------------------------------------------------------------
++ CMD: bash -lc 
+    set -Eeuo pipefail
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    dotnet ef migrations add 'Initial_20260106_125129' --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj'
+  
+Build started...
+Build succeeded.
+Done. To undo this action, use 'ef migrations remove'
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> EF migrations list (after)
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    dotnet ef migrations list --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --no-build
+  
+Unable to create a 'DbContext' of type 'RuntimeType'. The exception 'PG_PASSWORD is empty. Provide PG_PASSWORD for design-time migrations.' was thrown while attempting to create an instance. For the different patterns supported at design time, see https://go.microsoft.com/fwlink/?linkid=851728
+STATUS: FAIL (exit=1)
+----------------------------------------------------------------
+>>> DONE
+----------------------------------------------------------------

@@ -1,0 +1,24 @@
+----------------------------------------------------------------
+>>> Stage 3.5 — RECONCILE APPLY (controlled)
+----------------------------------------------------------------
+API_URL=http://localhost:5272
+IFACE=wg1
+LAST_ENV=/opt/vpn-service/reports/stage35_last_run.env
+TOKEN_FILE=/opt/vpn-service/reports/last_token.txt
+----------------------------------------------------------------
+>>> Plan summary
+----------------------------------------------------------------
+PLAN_FILE=/opt/vpn-service/reports/stage35_plan_2026-01-06_15-06-42.tsv
+ADD=1 DEL=0
+----------------------------------------------------------------
+>>> Plan preview (top 50)
+----------------------------------------------------------------
++ CMD: bash -lc head -n 50 '/opt/vpn-service/reports/stage35_plan_2026-01-06_15-06-42.tsv' || true
+ADD	QJh6h5iG80A3kvfmP46RvSR1ddBDOWV+6lMU04tNUBY
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> SAFETY GATE
+----------------------------------------------------------------
+This will call: POST http://localhost:5272/api/v1/admin/wg/reconcile (apply changes to IFACE=wg1)
+Type APPLY to continue.
+Abort: gate not passed.

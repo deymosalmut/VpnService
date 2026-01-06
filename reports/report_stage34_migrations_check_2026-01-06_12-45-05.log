@@ -35,9 +35,9 @@ STATUS: OK (exit=0)
 ----------------------------------------------------------------
 + CMD: bash -lc 
     cd '/opt/vpn-service'
-    dotnet ef migrations list --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --no-build
+    dotnet ef migrations list --project './VpnService.Api/VpnService.Api.csproj' --startup-project './VpnService.Api/VpnService.Api.csproj' --no-build
   
-Unable to create a 'DbContext' of type 'RuntimeType'. The exception 'PG_PASSWORD is empty. Provide PG_PASSWORD for design-time migrations.' was thrown while attempting to create an instance. For the different patterns supported at design time, see https://go.microsoft.com/fwlink/?linkid=851728
+Your startup project 'VpnService.Api' doesn't reference Microsoft.EntityFrameworkCore.Design. This package is required for the Entity Framework Core Tools to work. Ensure your startup project is correct, install the package, and try again.
 STATUS: FAIL (exit=1)
 ----------------------------------------------------------------
 >>> DB applied migrations (__EFMigrationsHistory) [best-effort]
@@ -59,7 +59,7 @@ STATUS: WARN (history missing/unreadable; treating as empty)
     db=/tmp/ef_db_$$.txt
     pending=/tmp/ef_pending_$$.txt
 
-    dotnet ef migrations list --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --no-build       | sed -n 's/^\([0-9]\{14\}.*\)$/\1/p' > "$src"
+    dotnet ef migrations list --project './VpnService.Api/VpnService.Api.csproj' --startup-project './VpnService.Api/VpnService.Api.csproj' --no-build       | sed -n 's/^\([0-9]\{14\}.*\)$/\1/p' > "$src"
 
     (psql_app -Atc 'select migrationid from "__EFMigrationsHistory" order by migrationid;' || true)       | sed '/^\s*$/d' > "$db"
 
@@ -74,23 +74,17 @@ STATUS: WARN (history missing/unreadable; treating as empty)
       echo "Pending migrations:"
       cat "$pending"
 
-      out_sql="/opt/vpn-service/reports/ef_idempotent_2026-01-06_12-49-18.sql"
-      dotnet ef migrations script --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --no-build --idempotent --output "$out_sql"
+      out_sql="/opt/vpn-service/reports/ef_idempotent_2026-01-06_12-45-09.sql"
+      dotnet ef migrations script --project './VpnService.Api/VpnService.Api.csproj' --startup-project './VpnService.Api/VpnService.Api.csproj' --no-build --idempotent --output "$out_sql"
       echo "IDEMPOTENT_SQL=$out_sql"
       exit 20
     fi
   
-ERROR:  relation "__EFMigrationsHistory" does not exist
-СТРОКА 1: select migrationid from "__EFMigrationsHistory" order by mig...
-                                  ^
-SOURCE_COUNT=0
-APPLIED_COUNT=0
-PENDING_COUNT=0
-STATUS: OK (exit=0)
+STATUS: FAIL (exit=1)
 SUMMARY: MIGRATIONS_PENDING=NO
 ----------------------------------------------------------------
 >>> DONE
 ----------------------------------------------------------------
 ----------------------------------------------------------------
-Report: /opt/vpn-service/reports/report_stage34_migrations_check_2026-01-06_12-49-14.log
-Report committed.
+Report: /opt/vpn-service/reports/report_stage34_migrations_check_2026-01-06_12-45-05.log
+Report NOT committed.

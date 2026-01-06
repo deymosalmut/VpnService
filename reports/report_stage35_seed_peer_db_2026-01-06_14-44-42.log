@@ -1,0 +1,84 @@
+----------------------------------------------------------------
+>>> Stage 3.5 — SEED 1 peer into DB (controlled)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> Load app DB env
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    echo "PG_DATABASE=$PG_DATABASE PG_USER=$PG_USER PG_HOST=$PG_HOST PG_PORT=$PG_PORT PG_PASSWORD=${PG_PASSWORD:+SET}"
+  
+PG_DATABASE=vpnservice PG_USER=vpnservice PG_HOST=127.0.0.1 PG_PORT=5432 PG_PASSWORD=SET
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Precheck: table public."VpnPeers" exists
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> Check table exists
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    psql_app -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name='VpnPeers';" | grep -qx '1'
+  
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> Generate WireGuard keypair (private key stored on disk, not printed)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> wg genkey + pubkey
+----------------------------------------------------------------
++ CMD: bash -lc 
+    set -Eeuo pipefail
+    mkdir -p /opt/vpn-service/reports/stage35_seed_keys_2026-01-06_14-44-42
+    chmod 700 /opt/vpn-service/reports/stage35_seed_keys_2026-01-06_14-44-42
+
+    set -Eeuo pipefail
+    priv=$(wg genkey)
+    pub=$(printf '%s' "$priv" | wg pubkey)
+    printf '%s
+' "$priv" > '/opt/vpn-service/reports/stage35_seed_keys_2026-01-06_14-44-42/privatekey'
+    chmod 600 /opt/vpn-service/reports/stage35_seed_keys_2026-01-06_14-44-42/privatekey
+    printf '%s
+' "$pub"  > '/opt/vpn-service/reports/stage35_seed_keys_2026-01-06_14-44-42/publickey'
+    echo "PUBLIC_KEY=$pub"
+    echo "KEY_DIR=/opt/vpn-service/reports/stage35_seed_keys_2026-01-06_14-44-42"
+  
+PUBLIC_KEY=ep6lv8nAbxe03RFeXXghGOL76emUVKTbrtcOVbR8XFc=
+KEY_DIR=/opt/vpn-service/reports/stage35_seed_keys_2026-01-06_14-44-42
+STATUS: OK (exit=0)
+----------------------------------------------------------------
+>>> SAFETY GATE
+----------------------------------------------------------------
+Target DB: vpnservice @ 127.0.0.1:5432 user=vpnservice
+This will INSERT 1 row into public."VpnPeers" with PublicKey=ep6lv8nAbxe03RFeXXghGOL76emUVKTbrtcOVbR8XFc
+Type SEED to continue.
+----------------------------------------------------------------
+>>> Insert peer (idempotent)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> INSERT if not exists
+----------------------------------------------------------------
++ CMD: bash -lc 
+    set -Eeuo pipefail
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    psql_app -v ON_ERROR_STOP=1 -Atc "
+      insert into public.\"VpnPeers\"(\"PublicKey\")
+      select 'ep6lv8nAbxe03RFeXXghGOL76emUVKTbrtcOVbR8XFc'
+      where not exists (select 1 from public.\"VpnPeers\" where \"PublicKey\"='ep6lv8nAbxe03RFeXXghGOL76emUVKTbrtcOVbR8XFc');
+    "
+    echo 'DB_COUNT='"$(psql_app -Atc 'select count(*) from public."VpnPeers";')"
+  
+ERROR:  null value in column "Id" of relation "VpnPeers" violates not-null constraint
+ПОДРОБНОСТИ:  Failing row contains (null, ep6lv8nAbxe03RFeXXghGOL76emUVKTbrtcOVbR8XFc, null, null, 2026-01-06 14:44:47.470531+00, null, null).
+STATUS: FAIL (exit=1)
+----------------------------------------------------------------
+>>> DONE
+----------------------------------------------------------------
+SEEDED_PUBLIC_KEY=ep6lv8nAbxe03RFeXXghGOL76emUVKTbrtcOVbR8XFc
+KEY_DIR=/opt/vpn-service/reports/stage35_seed_keys_2026-01-06_14-44-42

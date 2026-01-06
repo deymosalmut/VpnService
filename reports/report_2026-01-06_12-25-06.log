@@ -1,0 +1,59 @@
+-------------------------------------------
+TASK: API: start background
+TIME_UTC: Вт 06 янв 2026 12:25:06 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+Started API background PID=4676
+API stdout/stderr: /opt/vpn-service/reports/report_2026-01-06_12-25-06.log.api.out
+-------------------------------------------
+TASK: API: health probe
+TIME_UTC: Вт 06 янв 2026 12:25:06 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+Waiting for health... (1/60)
+Waiting for health... (2/60)
+Waiting for health... (3/60)
+Waiting for health... (4/60)
+Waiting for health... (5/60)
+Waiting for health... (6/60)
+Waiting for health... (7/60)
+Waiting for health... (8/60)
+Waiting for health... (9/60)
+Waiting for health... (10/60)
+Waiting for health... (11/60)
+Waiting for health... (12/60)
+Waiting for health... (13/60)
+Waiting for health... (14/60)
+Waiting for health... (15/60)
+Waiting for health... (16/60)
+Waiting for health... (17/60)
+Waiting for health... (18/60)
+Waiting for health... (19/60)
+Waiting for health... (20/60)
+Waiting for health... (21/60)
+Waiting for health... (22/60)
+Waiting for health... (23/60)
+Waiting for health... (24/60)
+Waiting for health... (25/60)
+Waiting for health... (26/60)
+Waiting for health... (27/60)
+Waiting for health... (28/60)
+Waiting for health... (29/60)
+Waiting for health... (30/60)
+Waiting for health... (31/60)
+Waiting for health... (32/60)
+Waiting for health... (33/60)
+Waiting for health... (34/60)
+Waiting for health... (35/60)
+Waiting for health... (36/60)
+Waiting for health... (37/60)
+Waiting for health... (38/60)
+Waiting for health... (39/60)
+Waiting for health... (40/60)
+Waiting for health... (41/60)
+Waiting for health... (42/60)
+Waiting for health... (43/60)
+Waiting for health... (44/60)
+Health: OK (http://localhost:5272/health)

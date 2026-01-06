@@ -1,0 +1,6 @@
+----------------------------------------------------------------
+>>> Stage 3.5 — DIFF/PLAN (read-only)
+----------------------------------------------------------------
+DESIRED_FILE=
+ACTUAL_FILE=/opt/vpn-service/reports/stage35_actual_2026-01-06_14-14-20.tsv
+FAIL missing desired file

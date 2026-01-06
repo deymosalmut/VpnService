@@ -1,0 +1,37 @@
+----------------------------------------------------------------
+>>> Stage 3.4 — MIGRATIONS APPLY (controlled)
+----------------------------------------------------------------
+----------------------------------------------------------------
+>>> Load app DB env
+----------------------------------------------------------------
++ CMD: bash -lc source scripts/lib/appdb.sh && load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+scripts/lib/appdb.sh: line 17: PG_DATABASE: PG_DATABASE missing in app-db.env
+STATUS: FAIL (exit=1)
+----------------------------------------------------------------
+>>> Check dotnet-ef available
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    if dotnet ef --version >/dev/null 2>&1; then dotnet ef --version; exit 0; fi
+    if [[ -f .config/dotnet-tools.json ]]; then dotnet tool restore && dotnet ef --version; exit 0; fi
+    echo 'dotnet-ef missing and no tool-manifest found.'
+    exit 10
+  
+Entity Framework Core .NET Command-line Tools
+9.0.11
+STATUS: OK (exit=0)
+SUMMARY: CSPROJ=
+----------------------------------------------------------------
+>>> DB app connect: SELECT 1
+----------------------------------------------------------------
++ CMD: bash -lc 
+    cd '/opt/vpn-service'
+    source scripts/lib/appdb.sh
+    load_app_db_env '/opt/vpn-service/infra/local/app-db.env'
+    psql_app -c 'select 1;'
+  
+scripts/lib/appdb.sh: line 17: PG_DATABASE: PG_DATABASE missing in app-db.env
+STATUS: FAIL (exit=1)
+----------------------------------------------------------------
+>>> SAFETY GATE
+----------------------------------------------------------------

@@ -42,9 +42,10 @@ STATUS: FAIL (exit=1)
 ----------------------------------------------------------------
 >>> DB applied migrations (__EFMigrationsHistory) [best-effort]
 ----------------------------------------------------------------
-ERROR:  relation "__EFMigrationsHistory" does not exist
+ERROR:  column "migrationid" does not exist
 СТРОКА 1: select migrationid from "__EFMigrationsHistory" order by mig...
-                                  ^
+                 ^
+ПОДСКАЗКА:  Perhaps you meant to reference the column "__EFMigrationsHistory.MigrationId".
 STATUS: WARN (history missing/unreadable; treating as empty)
 ----------------------------------------------------------------
 >>> Compute pending + generate idempotent SQL if needed
@@ -74,23 +75,30 @@ STATUS: WARN (history missing/unreadable; treating as empty)
       echo "Pending migrations:"
       cat "$pending"
 
-      out_sql="/opt/vpn-service/reports/ef_idempotent_2026-01-06_12-49-18.sql"
+      out_sql="/opt/vpn-service/reports/ef_idempotent_2026-01-06_13-08-41.sql"
       dotnet ef migrations script --project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --startup-project './VpnService.Infrastructure/VpnService.Infrastructure.csproj' --no-build --idempotent --output "$out_sql"
       echo "IDEMPOTENT_SQL=$out_sql"
-      exit 20
+      echo MIGRATIONS_PENDING=YES; exit 0
     fi
+
+    echo MIGRATIONS_PENDING=NO
   
-ERROR:  relation "__EFMigrationsHistory" does not exist
+ERROR:  column "migrationid" does not exist
 СТРОКА 1: select migrationid from "__EFMigrationsHistory" order by mig...
-                                  ^
-SOURCE_COUNT=0
+                 ^
+ПОДСКАЗКА:  Perhaps you meant to reference the column "__EFMigrationsHistory.MigrationId".
+SOURCE_COUNT=1
 APPLIED_COUNT=0
-PENDING_COUNT=0
+PENDING_COUNT=1
+
+Pending migrations:
+20260106130133_Initial_20260106_130108
+IDEMPOTENT_SQL=/opt/vpn-service/reports/ef_idempotent_2026-01-06_13-08-41.sql
+MIGRATIONS_PENDING=YES
 STATUS: OK (exit=0)
 SUMMARY: MIGRATIONS_PENDING=NO
 ----------------------------------------------------------------
 >>> DONE
 ----------------------------------------------------------------
 ----------------------------------------------------------------
-Report: /opt/vpn-service/reports/report_stage34_migrations_check_2026-01-06_12-49-14.log
-Report committed.
+Report: /opt/vpn-service/reports/report_stage34_migrations_check_2026-01-06_13-08-37.log
