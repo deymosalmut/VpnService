@@ -1,0 +1,8 @@
+RESULT=CHANGES_PENDING
+ADD=1 DEL=0
+PLAN_FILE=/opt/vpn-service/reports/stage35_plan_2026-01-06_21-06-46.tsv
+DESIRED_FILE=/opt/vpn-service/reports/stage35_desired_2026-01-06_21-06-12.tsv
+ACTUAL_FILE=/opt/vpn-service/reports/stage35_actual_2026-01-06_21-06-21.tsv
+
+PLAN_PREVIEW:
+ADD	QJh6h5iG80A3kvfmP46RvSR1ddBDOWV+6lMU04tNUBY=

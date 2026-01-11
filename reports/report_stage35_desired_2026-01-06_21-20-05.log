@@ -1,0 +1,22 @@
+----------------------------------------------------------------
+>>> Stage 3.5 — DESIRED (DB) dump (read-only)
+----------------------------------------------------------------
+OUT=/opt/vpn-service/reports/stage35_desired_2026-01-06_21-20-05.tsv
+----------------------------------------------------------------
+>>> Load app DB env
+----------------------------------------------------------------
+PG_DATABASE=vpnservice PG_USER=vpnservice PG_HOST=127.0.0.1 PG_PORT=5432 PG_PASSWORD=SET
+IFACE=wg1
+
+----------------------------------------------------------------
+>>> Export desired rows (pubkey<TAB>allowed<TAB>endpoint<TAB>keepalive<TAB>enabled)
+----------------------------------------------------------------
+QJh6h5iG80A3kvfmP46RvSR1ddBDOWV+6lMU04tNUBY=	10.8.0.100/32		0	1
+
+LINES=57
+BAD_FORMAT=0
+----------------------------------------------------------------
+>>> Summary
+----------------------------------------------------------------
+DESIRED_FILE=/opt/vpn-service/reports/stage35_desired_2026-01-06_21-20-05.tsv
+Report: /opt/vpn-service/reports/report_stage35_desired_2026-01-06_21-20-05.log

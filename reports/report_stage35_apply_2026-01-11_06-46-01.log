@@ -1,0 +1,24 @@
+----------------------------------------------------------------
+>>> Stage 3.5 — RECONCILE APPLY (controlled, local wg set)
+----------------------------------------------------------------
+IFACE=wg1
+LAST_ENV=/opt/vpn-service/reports/stage35_last_run.env
+PLAN_FILE=/opt/vpn-service/reports/stage35_plan_2026-01-06_22-09-30.tsv
+
+----------------------------------------------------------------
+>>> Plan summary
+----------------------------------------------------------------
+ADD=0 DEL=0 UPD=0
+Plan preview (top 50):
+
+----------------------------------------------------------------
+>>> Pre-validate all pubkeys in plan
+----------------------------------------------------------------
+OK pubkey validation
+
+----------------------------------------------------------------
+>>> SAFETY GATE
+----------------------------------------------------------------
+This will APPLY locally via: wg set wg1 ...
+Type APPLY to continue.
+FAIL: aborted

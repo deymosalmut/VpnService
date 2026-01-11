@@ -1,0 +1,1 @@
+[UPD] QJh6h5iG80A3kvfmP46RvSR1ddBDOWV+6lMU04tNUBY= allowed:10.8.0.100/32 -> 10.8.0.100/32 ka:1 -> 0

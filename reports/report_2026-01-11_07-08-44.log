@@ -1,0 +1,36 @@
+-------------------------------------------
+TASK: API: start background
+TIME_UTC: Вс 11 янв 2026 07:08:44 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+Started API background PID=2802
+API stdout/stderr: /opt/vpn-service/reports/report_2026-01-11_07-08-44.log.api.out
+-------------------------------------------
+TASK: API: health probe
+TIME_UTC: Вс 11 янв 2026 07:08:44 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+Waiting for health... (1/60)
+Waiting for health... (2/60)
+Waiting for health... (3/60)
+Waiting for health... (4/60)
+Waiting for health... (5/60)
+Waiting for health... (6/60)
+Waiting for health... (7/60)
+Waiting for health... (8/60)
+Waiting for health... (9/60)
+Waiting for health... (10/60)
+Waiting for health... (11/60)
+Waiting for health... (12/60)
+Waiting for health... (13/60)
+Waiting for health... (14/60)
+Waiting for health... (15/60)
+Waiting for health... (16/60)
+Waiting for health... (17/60)
+Waiting for health... (18/60)
+Waiting for health... (19/60)
+Waiting for health... (20/60)
+Waiting for health... (21/60)
+Health: OK (http://localhost:5272/health)

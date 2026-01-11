@@ -7,7 +7,7 @@ export LC_ALL=ru_RU.UTF-8
 # VPN SERVICE DEV MENU + REPORTING (ENGLISH ONLY)
 # ============================================================
 # ---------- Config (override via env) ----------
-export API_URL="${API_URL:-http://localhost:5272}"
+export API_URL="${API_URL:-http://127.0.0.1:5272}"
 export IFACE="${IFACE:-wg1}"
 export ADMIN_USER="${ADMIN_USER:-admin}"
 export ADMIN_PASS="${ADMIN_PASS:-admin123}"

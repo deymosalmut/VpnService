@@ -1,0 +1,23 @@
+----------------------------------------------------------------
+>>> Stage 3.5 — DIFF/PLAN (read-only)
+----------------------------------------------------------------
+DESIRED_FILE=/opt/vpn-service/reports/stage35_desired_2026-01-06_22-03-44.tsv
+ACTUAL_FILE=/opt/vpn-service/reports/stage35_actual_2026-01-06_22-03-44.tsv
+PLAN=/opt/vpn-service/reports/stage35_plan_2026-01-06_22-03-44.tsv
+DIFF=/opt/vpn-service/reports/stage35_diff_2026-01-06_22-03-44.txt
+----------------------------------------------------------------
+>>> Normalize desired/actual -> maps
+----------------------------------------------------------------
+DESIRED_COUNT=1
+ACTUAL_COUNT=1
+----------------------------------------------------------------
+>>> Summary
+----------------------------------------------------------------
+RESULT=NO_CHANGES
+ADD=0 DEL=0 UPD=0
+PLAN_FILE=/opt/vpn-service/reports/stage35_plan_2026-01-06_22-03-44.tsv
+DIFF_FILE=/opt/vpn-service/reports/stage35_diff_2026-01-06_22-03-44.txt
+----------------------------------------------------------------
+>>> DONE
+----------------------------------------------------------------
+Report: /opt/vpn-service/reports/report_stage35_diff_2026-01-06_22-03-44.log
