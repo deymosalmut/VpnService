@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/opt/vpn-service}"
-API_URL="${API_URL:-http://localhost:5272}"
+API_URL="${API_URL:-http://127.0.0.1:5272}"
 REPORT_DIR="${REPORT_DIR:-$REPO_ROOT/reports}"
 mkdir -p "$REPORT_DIR"
 ts(){ date -u +"%Y-%m-%d_%H-%M-%S"; }

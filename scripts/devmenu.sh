@@ -7,7 +7,7 @@ export LC_ALL=ru_RU.UTF-8
 # VPN SERVICE DEV MENU + REPORTING (ENGLISH ONLY)
 # ============================================================
 # ---------- Config (override via env) ----------
-export API_URL="${API_URL:-http://localhost:5272}"
+export API_URL="${API_URL:-http://127.0.0.1:5272}"
 export IFACE="${IFACE:-wg1}"
 export ADMIN_USER="${ADMIN_USER:-admin}"
 export ADMIN_PASS="${ADMIN_PASS:-admin123}"
@@ -1528,6 +1528,7 @@ SA) Stage 3.2+3.3 full check
 A) [Probe] Probe WG endpoints
 34) Stage 3.4 — Migrations CHECK (DB + EF)
 35) Stage 3.4 — Migrations APPLY (controlled)
+S35) Stage 3.5 - Desired vs Actual + Reconcile (menu)
 B) [Stage3.2] Dry-run reconcile (if endpoint exists)
 C) [Reports] Cleanup reports (keep last N)
 R) [Sync] Сбор отчета и отправка на Windows
@@ -1919,6 +1920,10 @@ while true; do
       git_commit_report_if_enabled "$report" || true
       pause
       ;;
+    S35|s35|3.5|35.5)
+      bash "scripts/stage3/stage3_05_menu.sh" || true
+      ;;
+
     A|a)
       report="$(report_name)"
       header "Probe: WG endpoints. Report: $report"

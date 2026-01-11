@@ -1,0 +1,19 @@
+----------------------------------------------------------------
+>>> Stage 3.5 — ACTUAL (WG) dump (read-only)
+----------------------------------------------------------------
+IFACE=wg1
+OUT=/opt/vpn-service/reports/stage35_actual_2026-01-06_21-54-32.tsv
+----------------------------------------------------------------
+>>> Export actual rows (pubkey<TAB>allowed<TAB>endpoint<TAB>keepalive<TAB>enabled=1)
+----------------------------------------------------------------
+1 /opt/vpn-service/reports/stage35_actual_2026-01-06_21-54-32.tsv
+1 /opt/vpn-service/reports/stage35_actual_2026-01-06_21-54-32.tsv
+----------------------------------------------------------------
+>>> Preview (top 20)
+----------------------------------------------------------------
+QJh6h5iG80A3kvfmP46RvSR1ddBDOWV+6lMU04tNUBY=	10.8.0.100/32		0	1
+----------------------------------------------------------------
+>>> Summary
+----------------------------------------------------------------
+ACTUAL_FILE=/opt/vpn-service/reports/stage35_actual_2026-01-06_21-54-32.tsv
+Report: /opt/vpn-service/reports/report_stage35_actual_2026-01-06_21-54-32.log

@@ -1,0 +1,38 @@
+Используются параметры запуска из VpnService.Api/Properties/launchSettings.json...
+Сборка…
+/opt/vpn-service/VpnService.Infrastructure/Repositories/RefreshTokenRepository.cs(35,23): warning CS1998: В данном асинхронном методе отсутствуют операторы await, поэтому метод будет выполняться синхронно. Воспользуйтесь оператором await для ожидания неблокирующих вызовов API или оператором await Task.Run(...) для выполнения связанных с ЦП заданий в фоновом потоке. [/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj]
+/opt/vpn-service/VpnService.Infrastructure/Repositories/PeerRepository.cs(57,23): warning CS1998: В данном асинхронном методе отсутствуют операторы await, поэтому метод будет выполняться синхронно. Воспользуйтесь оператором await для ожидания неблокирующих вызовов API или оператором await Task.Run(...) для выполнения связанных с ЦП заданий в фоновом потоке. [/opt/vpn-service/VpnService.Infrastructure/VpnService.Infrastructure.csproj]
+[07:09:05 INF] Saved 0 entities to in-memory store.
+[07:09:05 INF] In-memory database created successfully
+[07:09:05 INF] VPN Service starting...
+[07:09:05 INF] User profile is available. Using '/root/.aspnet/DataProtection-Keys' as key repository; keys will not be encrypted at rest.
+[07:09:05 INF] Now listening on: http://localhost:5272
+[07:09:05 INF] Application started. Press Ctrl+C to shut down.
+[07:09:05 INF] Hosting environment: Development
+[07:09:05 INF] Content root path: /opt/vpn-service/VpnService.Api
+[07:09:06 INF] Request starting HTTP/1.1 GET http://localhost:5272/health - null null
+[07:09:06 WRN] Failed to determine the https port for redirect.
+[07:09:06 INF] Executing endpoint 'Health checks'
+[07:09:06 INF] Executed endpoint 'Health checks'
+[07:09:06 INF] Request finished HTTP/1.1 GET http://localhost:5272/health - 200 null text/plain 161.5302ms
+[07:10:06 INF] Request starting HTTP/1.1 GET http://localhost:5272/health - null null
+[07:10:06 INF] Executing endpoint 'Health checks'
+[07:10:06 INF] Executed endpoint 'Health checks'
+[07:10:06 INF] Request finished HTTP/1.1 GET http://localhost:5272/health - 200 null text/plain 5.9245ms
+[07:10:06 INF] Request starting HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - application/json 42
+[07:10:06 INF] Executing endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
+[07:10:07 INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[VpnService.Application.DTOs.AuthLoginResponse]] Login(VpnService.Application.DTOs.AuthLoginRequest) on controller VpnService.Api.Controllers.AuthController (VpnService.Api).
+[07:10:07 INF] Saved 1 entities to in-memory store.
+[07:10:07 INF] User logged in: admin
+[07:10:07 INF] Executing OkObjectResult, writing value of type 'VpnService.Application.DTOs.AuthLoginResponse'.
+[07:10:07 INF] Executed action VpnService.Api.Controllers.AuthController.Login (VpnService.Api) in 268.9253ms
+[07:10:07 INF] Executed endpoint 'VpnService.Api.Controllers.AuthController.Login (VpnService.Api)'
+[07:10:07 INF] Request finished HTTP/1.1 POST http://localhost:5272/api/v1/auth/login - 200 null application/json; charset=utf-8 307.2552ms
+[07:10:07 INF] Request starting HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/state?iface=wg1 - null null
+[07:10:07 INF] Executing endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.GetState (VpnService.Api)'
+[07:10:07 INF] Route matched with {action = "GetState", controller = "WireGuardAdmin"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetState(System.String, System.Threading.CancellationToken) on controller VpnService.Api.Controllers.V1.WireGuardAdminController (VpnService.Api).
+[07:10:07 INF] Executing ContentResult with HTTP Response ContentType of application/json
+[07:10:07 INF] Executed action VpnService.Api.Controllers.V1.WireGuardAdminController.GetState (VpnService.Api) in 54.2815ms
+[07:10:07 INF] Executed endpoint 'VpnService.Api.Controllers.V1.WireGuardAdminController.GetState (VpnService.Api)'
+[07:10:07 INF] Request finished HTTP/1.1 GET http://localhost:5272/api/v1/admin/wg/state?iface=wg1 - 200 379 application/json 128.7185ms
+[07:38:02 INF] Application is shutting down...
