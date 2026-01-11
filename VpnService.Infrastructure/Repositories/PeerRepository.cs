@@ -54,10 +54,11 @@ public class PeerRepository : IPeerRepository
         await _context.VpnPeers.AddAsync(peer);
     }
 
-    public async Task UpdateAsync(VpnPeer peer)
+    public Task UpdateAsync(VpnPeer peer)
     {
         peer.UpdatedAt = DateTime.UtcNow;
         _context.VpnPeers.Update(peer);
+        return Task.CompletedTask;
     }
 
     public async Task DeleteAsync(Guid id)

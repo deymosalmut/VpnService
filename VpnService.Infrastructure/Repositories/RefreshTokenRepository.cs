@@ -32,9 +32,10 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         await _context.RefreshTokens.AddAsync(token);
     }
 
-    public async Task UpdateAsync(RefreshToken token)
+    public Task UpdateAsync(RefreshToken token)
     {
         _context.RefreshTokens.Update(token);
+        return Task.CompletedTask;
     }
 
     public async Task DeleteAsync(Guid id)

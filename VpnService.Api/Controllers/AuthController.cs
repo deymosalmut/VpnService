@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Cryptography;
 using System.Text;
+using VpnService.Api.Security;
 using VpnService.Application.DTOs;
 using VpnService.Infrastructure.Interfaces;
 using VpnService.Infrastructure.Repositories;
@@ -40,8 +41,20 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     [ProducesResponseType(typeof(AuthLoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<AuthLoginResponse>> Login([FromBody] AuthLoginRequest request)
     {
+        Response.Headers["Cache-Control"] = "no-store";
+        Response.Headers["Pragma"] = "no-cache";
+
+        var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var username = request?.Username?.Trim() ?? string.Empty;
+
+        if (LoginRateLimiter.IsLimited(remoteIp, username))
+        {
+            _logger.LogWarning("Login rate limit exceeded for IP: {Ip}, user: {Username}", remoteIp, username);
+            return StatusCode(StatusCodes.Status429TooManyRequests, "Too many attempts");
+        }
         // Fail-closed: если пароль не задан в конфиге/env — логин всегда запрещён
         if (string.IsNullOrWhiteSpace(_adminPass))
         {

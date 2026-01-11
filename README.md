@@ -151,6 +151,8 @@ POST   /api/v1/auth/refresh        - Обновление токена
 POST   /api/v1/auth/logout         - Выход
 ```
 
+Login rate limiting: 10/min per IP, 5/min per username.
+
 ### Peers Management
 ```
 POST   /api/v1/peers               - Создать пира
@@ -266,3 +268,13 @@ export Jwt__Issuer="VpnService"
 MIT
 # VpnService
 # VpnService
+
+## Checks
+
+- `scripts/checks/13_build_no_cs1998.sh`: Builds `VpnService.Api/VpnService.Api.csproj` (Debug) and fails if CS1998 appears in the output.
+
+## Admin panel (MVP)
+
+- Open http://127.0.0.1:5272/admin
+- Login with admin credentials
+- Use "WG State" or "Reconcile (dry-run)" for read-only admin calls
