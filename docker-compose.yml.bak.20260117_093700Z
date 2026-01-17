@@ -1,0 +1,30 @@
+services:
+  vpnservice-api:
+    build:
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    security_opt:
+      - apparmor:unconfined
+    devices:
+      - /dev/net/tun:/dev/net/tun
+      context: .
+      dockerfile: Dockerfile
+    container_name: vpnservice-api
+    network_mode: "host"
+    restart: unless-stopped
+
+    # IMPORTANT:
+    # - admin.env у вас уже есть и содержит AdminAuth__Username/AdminAuth__Password + ADMIN_USER/ADMIN_PASS
+    # - остальные env (DB connection string и т.п.) берём из вашего infra/local/app.env если он существует
+    env_file:
+      - ./infra/local/admin.env
+      - ./infra/local/app.env
+
+    environment:
+      # на всякий случай фиксируем URL (можно убрать, если уже задаётся в app.env)
+      ASPNETCORE_URLS: "http://127.0.0.1:5272"
+
+    volumes:
+      # DataProtection keys, чтобы токены/шифрование не "сбрасывались" при пересоздании контейнера
+      - ./data/dpkeys:/root/.aspnet/DataProtection-Keys

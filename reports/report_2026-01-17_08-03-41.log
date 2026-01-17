@@ -1,0 +1,17 @@
+-------------------------------------------
+TASK: Smoke: health
+TIME_UTC: Сб 17 янв 2026 08:03:41 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
++ curl -sS http://127.0.0.1:5272/health
+Healthy
+-------------------------------------------
+TASK: Smoke: login and token
+TIME_UTC: Сб 17 янв 2026 08:03:41 UTC
+HOST: Vpn-Main
+REPO_ROOT: /opt/vpn-service
+-------------------------------------------
+[0;31mERROR:[0m access token is empty. Check /api/v1/auth/login and API logs.
+Login response (first 300 chars): 
+Hint: verify LoginRequest DTO and credentials.

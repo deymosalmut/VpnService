@@ -28,7 +28,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
 
 // Database configuration
-var connectionString = builder.Configuration.GetConnectionString("Default");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 if (string.IsNullOrEmpty(connectionString) || connectionString.Contains("localhost"))
 {
@@ -91,23 +91,35 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
 
+// Database migration (only for SQL databases)
+if (!app.Environment.IsDevelopment() || 
+    (builder.Configuration.GetConnectionString("DefaultConnection") != null && 
+     !builder.Configuration.GetConnectionString("DefaultConnection")!.Contains("localhost")))
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<VpnDbContext>();
+        try
+        {
+            dbContext.Database.Migrate();
+            Log.Information("Database migration completed successfully");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error during database migration");
+        }
+    }
+}
+else
+{
+    // Create tables for In-Memory database
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<VpnDbContext>();
+        dbContext.Database.EnsureCreated();
+        Log.Information("In-memory database created successfully");
+    }
+}
 
-  // Database init/migration
-  using (var scope = app.Services.CreateScope())
-  {
-      var dbContext = scope.ServiceProvider.GetRequiredService<VpnDbContext>();
-
-      if (dbContext.Database.IsRelational())
-      {
-          dbContext.Database.Migrate();
-          Log.Information("Database migration completed successfully");
-      }
-      else
-      {
-          dbContext.Database.EnsureCreated();
-          Log.Information("In-memory database created successfully");
-      }
-  }
-
-  Log.Information("VPN Service starting...");
+Log.Information("VPN Service starting...");
 app.Run();

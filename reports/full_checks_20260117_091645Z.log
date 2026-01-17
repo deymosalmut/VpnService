@@ -1,0 +1,217 @@
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/01_env.sh
+----------------------------------------
+[INFO] ENV CHECK
+[INFO] OS: Linux Vpn-Main 6.8.0-90-generic #91-Ubuntu SMP PREEMPT_DYNAMIC Tue Nov 18 14:14:30 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+[INFO] dotnet: 9.0.203
+[INFO] curl: curl 8.5.0 (x86_64-pc-linux-gnu) libcurl/8.5.0 OpenSSL/3.0.13 zlib/1.3 brotli/1.1.0 zstd/1.5.5 libidn2/2.3.7 libpsl/0.21.2 (+libidn2/2.3.7) libssh/0.10.6/openssl/zlib nghttp2/1.59.0 librtmp/2.3 OpenLDAP/2.6.7
+[INFO] wg: wireguard-tools v1.0.20210914 - https://git.zx2c4.com/wireguard-tools/
+[INFO] psql: psql (PostgreSQL) 15.15 (Ubuntu 15.15-1.pgdg24.04+1)
+----------------------------------------
+[INFO] OK
+[RC ] 0 (/opt/vpn-service/scripts/checks/01_env.sh)
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/02_services.sh
+----------------------------------------
+[INFO] SERVICES CHECK
+[WARN] ssh: unit not found
+[WARN] postgresql: unit not found
+[WARN] wg-quick@wg1: unit not found
+----------------------------------------
+[INFO] OK (with possible warnings)
+[RC ] 0 (/opt/vpn-service/scripts/checks/02_services.sh)
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/03_wireguard.sh
+----------------------------------------
+[INFO] WIREGUARD CHECK
+[INFO] Interfaces:
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+2: enp0s3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DEFAULT group default qlen 1000
+3: enp0s8: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+4: wg1: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1420 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+5: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN mode DEFAULT group default 
+----------------------------------------
+[INFO] wg show wg1:
+interface: wg1
+  public key: ZYXEy5Xnr+8yTjisbjgyaLGzvDBqvPtcY6A/EFEAk0U=
+  private key: (hidden)
+  listening port: 51820
+
+peer: QJh6h5iG80A3kvfmP46RvSR1ddBDOWV+6lMU04tNUBY=
+  allowed ips: 10.8.0.100/32
+----------------------------------------
+[INFO] wg dump wg1:
+oPRJJkT7yzF4bx1JuLtnKfQrQLfiJ3NhIkGUt+8Py2k=	ZYXEy5Xnr+8yTjisbjgyaLGzvDBqvPtcY6A/EFEAk0U=	51820	off
+QJh6h5iG80A3kvfmP46RvSR1ddBDOWV+6lMU04tNUBY=	(none)	(none)	10.8.0.100/32	0	0	0	off
+----------------------------------------
+[INFO] OK
+[RC ] 0 (/opt/vpn-service/scripts/checks/03_wireguard.sh)
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/04_db.sh
+----------------------------------------
+[INFO] DB CHECK
+[INFO] postgresql: active
+----------------------------------------
+                                                      Список баз данных
+    Имя     |  Владелец  | Кодировка | LC_COLLATE  |  LC_CTYPE   | локаль ICU | Провайдер локали |       Права доступа       
+------------+------------+-----------+-------------+-------------+------------+------------------+---------------------------
+ postgres   | postgres   | UTF8      | en_US.UTF-8 | en_US.UTF-8 |            | libc             | 
+ template0  | postgres   | UTF8      | en_US.UTF-8 | en_US.UTF-8 |            | libc             | =c/postgres              +
+            |            |           |             |             |            |                  | postgres=CTc/postgres
+ template1  | postgres   | UTF8      | en_US.UTF-8 | en_US.UTF-8 |            | libc             | =c/postgres              +
+            |            |           |             |             |            |                  | postgres=CTc/postgres
+ vpnservice | vpnservice | UTF8      | en_US.UTF-8 | en_US.UTF-8 |            | libc             | =Tc/vpnservice           +
+            |            |           |             |             |            |                  | vpnservice=CTc/vpnservice+
+            |            |           |             |             |            |                  | vpn_admin=CTc/vpnservice +
+            |            |           |             |             |            |                  | vpnuser=CTc/vpnservice
+(4 строки)
+
+----------------------------------------
+[INFO] OK (with possible warnings)
+[RC ] 0 (/opt/vpn-service/scripts/checks/04_db.sh)
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/05_build.sh
+----------------------------------------
+[INFO] BUILD CHECK
+[INFO] dotnet restore...
+  Определение проектов для восстановления...
+  Все проекты обновлены для восстановления.
+[INFO] dotnet build...
+  Определение проектов для восстановления...
+  Все проекты обновлены для восстановления.
+  VpnService.Domain -> /opt/vpn-service/VpnService.Domain/bin/Debug/net9.0/VpnService.Domain.dll
+  VpnService.Infrastructure.Abstractions -> /opt/vpn-service/VpnService.Infrastructure.Abstractions/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.dll
+  VpnService.Application -> /opt/vpn-service/VpnService.Application/bin/Debug/net9.0/VpnService.Application.dll
+  VpnService.Infrastructure -> /opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Infrastructure.dll
+  VpnService.Api -> /opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Api.dll
+
+Сборка успешно завершена.
+    Предупреждений: 0
+    Ошибок: 0
+
+Прошло времени 00:00:04.99
+----------------------------------------
+[INFO] OK
+[RC ] 0 (/opt/vpn-service/scripts/checks/05_build.sh)
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/06_run_api.sh
+----------------------------------------
+[INFO] RUN API (idempotent)
+[INFO] API_BASE_URL=http://127.0.0.1:5272
+[INFO] HEALTH_URL=http://127.0.0.1:5272/health
+----------------------------------------
+[INFO] API already responding; skipping start
+----------------------------------------
+[INFO] OK
+[RC ] 0 (/opt/vpn-service/scripts/checks/06_run_api.sh)
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/07_auth.sh
+----------------------------------------
+[INFO] AUTH TEST (login + save token)
+[INFO] Calling login: http://127.0.0.1:5272/api/v1/auth/login
+{"accessToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6ImU1NzY2OThjLTQxYjUtMTUwNC1iZGU5LTA4YmQ0ZGVlMTVkZiIsImV4cCI6MTc2ODY0MjMxNiwiaXNzIjoiVnBuU2VydmljZSIsImF1ZCI6InZwbi1hcGkifQ.GI2VlbEcLKd2Lbj0R7AVBr7Kw5KCkNRQg2hkiclZ0PM","refreshToken":"NZFLXXEX4mtRerYdKyk4ipFXG/PZsIEhK7hm+Wub51A=","expiresIn":900}
+[INFO] TOKEN saved to /tmp/vpnservice_token.txt
+[INFO] Export for current shell:
+export TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6ImU1NzY2OThjLTQxYjUtMTUwNC1iZGU5LTA4YmQ0ZGVlMTVkZiIsImV4cCI6MTc2ODY0MjMxNiwiaXNzIjoiVnBuU2VydmljZSIsImF1ZCI6InZwbi1hcGkifQ.GI2VlbEcLKd2Lbj0R7AVBr7Kw5KCkNRQg2hkiclZ0PM"
+----------------------------------------
+[INFO] OK
+[RC ] 0 (/opt/vpn-service/scripts/checks/07_auth.sh)
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/08_admin_wg_state.sh
+----------------------------------------
+[INFO] ADMIN WG STATE
+[INFO] GET http://127.0.0.1:5272/api/v1/admin/wg/state?iface=wg1
+HTTP/1.1 500 Internal Server Error
+Content-Type: application/json; charset=utf-8
+Date: Sat, 17 Jan 2026 09:16:56 GMT
+Server: Kestrel
+Transfer-Encoding: chunked
+
+{"message":"wg show dump failed (exit=1): Unable to access interface: Operation not permitted","iface":"wg1"}
+----------------------------------------
+[INFO] OK
+[RC ] 0 (/opt/vpn-service/scripts/checks/08_admin_wg_state.sh)
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/09_end_to_end_stage3.sh
+----------------------------------------
+[INFO] STAGE 3 E2E
+[INFO] [1] Health
+Healthy
+[INFO] [2] Login
+{"accessToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6ImU1NzY2OThjLTQxYjUtMTUwNC1iZGU5LTA4YmQ0ZGVlMTVkZiIsImV4cCI6MTc2ODY0MjMxNywiaXNzIjoiVnBuU2VydmljZSIsImF1ZCI6InZwbi1hcGkifQ.cHyl72d08rn3xEm8Z8406c9rz1s5E0F_XeFmlSlAgdU","refreshToken":"U2s3AP7q8dcuR/YEP4J1JTH80mzeEROIFF6aYaAbxg8=","expiresIn":900}
+[INFO] [3] Admin WG State
+HTTP/1.1 500 Internal Server Error
+Content-Type: application/json; charset=utf-8
+Date: Sat, 17 Jan 2026 09:16:57 GMT
+Server: Kestrel
+Transfer-Encoding: chunked
+
+{"message":"wg show dump failed (exit=1): Unable to access interface: Operation not permitted","iface":"wg1"}
+----------------------------------------
+[INFO] OK
+[RC ] 0 (/opt/vpn-service/scripts/checks/09_end_to_end_stage3.sh)
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/11_admin_panel_smoke.sh
+----------------------------------------
+[INFO] ADMIN PANEL SMOKE TEST
+[INFO] Fetching http://127.0.0.1:5272/admin
+HTTP/1.1 200 OK
+Content-Length: 9909
+Content-Type: text/html; charset=utf-8
+Date: Sat, 17 Jan 2026 09:16:57 GMT
+Server: Kestrel
+Cache-Control: no-store, no-cache
+Pragma: no-cache
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: no-referrer
+Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'
+
+[INFO] Checking for stable marker: "VPN Service Admin"
+[ERR ] Expected page to contain "VPN Service Admin"
+[RC ] 1 (/opt/vpn-service/scripts/checks/11_admin_panel_smoke.sh)
+[STOP] Failed on /opt/vpn-service/scripts/checks/11_admin_panel_smoke.sh
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/12_login_ratelimit_smoke.sh
+----------------------------------------
+[INFO] LOGIN RATE LIMIT SMOKE TEST
+[INFO] Sending 12 bad login attempts to trigger rate limiting...
+[INFO] [1/12] 401 Unauthorized
+[INFO] [2/12] 401 Unauthorized
+[INFO] [3/12] 401 Unauthorized
+[INFO] [4/12] 429 Too Many Requests ✓
+[INFO] [5/12] 429 Too Many Requests ✓
+[INFO] [6/12] 429 Too Many Requests ✓
+[INFO] [7/12] 429 Too Many Requests ✓
+[INFO] [8/12] 429 Too Many Requests ✓
+[INFO] [9/12] 429 Too Many Requests ✓
+[INFO] [10/12] 429 Too Many Requests ✓
+[INFO] [11/12] 429 Too Many Requests ✓
+[INFO] [12/12] 429 Too Many Requests ✓
+[INFO] Results: 401=3, 429=9
+----------------------------------------
+[INFO] ✓ PASS: Rate limiting triggered
+[RC ] 0 (/opt/vpn-service/scripts/checks/12_login_ratelimit_smoke.sh)
+==================================================
+[RUN] /opt/vpn-service/scripts/checks/13_build_no_cs1998.sh
+----------------------------------------
+[INFO] BUILD NO CS1998 CHECK
+[INFO] Root directory: /opt/vpn-service
+[INFO] Building VpnService.Api (Debug)...
+  Определение проектов для восстановления...
+  Все проекты обновлены для восстановления.
+  VpnService.Domain -> /opt/vpn-service/VpnService.Domain/bin/Debug/net9.0/VpnService.Domain.dll
+  VpnService.Infrastructure.Abstractions -> /opt/vpn-service/VpnService.Infrastructure.Abstractions/bin/Debug/net9.0/VpnService.Infrastructure.Abstractions.dll
+  VpnService.Application -> /opt/vpn-service/VpnService.Application/bin/Debug/net9.0/VpnService.Application.dll
+  VpnService.Infrastructure -> /opt/vpn-service/VpnService.Infrastructure/bin/Debug/net9.0/VpnService.Infrastructure.dll
+  VpnService.Api -> /opt/vpn-service/VpnService.Api/bin/Debug/net9.0/VpnService.Api.dll
+
+Сборка успешно завершена.
+    Предупреждений: 0
+    Ошибок: 0
+
+Прошло времени 00:00:03.54
+----------------------------------------
+[INFO] ✓ PASS: Build succeeded, no CS1998
+[RC ] 0 (/opt/vpn-service/scripts/checks/13_build_no_cs1998.sh)
+[OK] All checks passed

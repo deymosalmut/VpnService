@@ -1,0 +1,99 @@
+[1mdiff --git a/VpnService.Api/Controllers/AdminUiController.cs b/VpnService.Api/Controllers/AdminUiController.cs[m
+[1mindex 07af4ec..b05abcf 100644[m
+[1m--- a/VpnService.Api/Controllers/AdminUiController.cs[m
+[1m+++ b/VpnService.Api/Controllers/AdminUiController.cs[m
+[36m@@ -378,7 +378,8 @@[m [mpublic class AdminUiController : ControllerBase[m
+ </html>[m
+ """;[m
+ [m
+[31m-    [HttpGet("/admin")][m
+[32m+[m[32m    [AcceptVerbs("GET","HEAD")][m
+[32m+[m[32m    [Route("/admin")][m
+     public ContentResult Index()[m
+     {[m
+         // Set security headers[m
+[1mdiff --git a/scripts/checks/06_run_api.sh b/scripts/checks/06_run_api.sh[m
+[1mindex 0e09fe6..ad755f0 100755[m
+[1m--- a/scripts/checks/06_run_api.sh[m
+[1m+++ b/scripts/checks/06_run_api.sh[m
+[36m@@ -1,12 +1,73 @@[m
+ #!/usr/bin/env bash[m
+ set -euo pipefail[m
+[31m-source "$(dirname "$0")/../lib/common.sh"[m
+ [m
+[31m-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"[m
+[31m-cd "$ROOT"[m
+[32m+[m[32mROOT_DIR="/opt/vpn-service"[m
+[32m+[m[32mAPI_BASE_URL="${API_BASE_URL:-http://127.0.0.1:5272}"[m
+[32m+[m[32mHEALTH_URL="${HEALTH_URL:-${API_BASE_URL}/health}"[m
+[32m+[m[32mPORT="${API_PORT:-5272}"[m
+ [m
+[31m-hr; log "RUN API (foreground)"[m
+[31m-log "API_BASE_URL=$API_BASE_URL"[m
+[31m-log "Press Ctrl+C to stop"[m
+[32m+[m[32mecho "----------------------------------------"[m
+[32m+[m[32mecho "[INFO] RUN API (idempotent)"[m
+[32m+[m[32mecho "[INFO] API_BASE_URL=${API_BASE_URL}"[m
+[32m+[m[32mecho "[INFO] HEALTH_URL=${HEALTH_URL}"[m
+[32m+[m[32mecho "----------------------------------------"[m
+ [m
+[31m-dotnet run --project VpnService.Api[m
+[32m+[m[32mwait_for_api() {[m
+[32m+[m[32m  local tries="${1:-40}"[m
+[32m+[m[32m  local sleep_s="${2:-0.25}"[m
+[32m+[m[32m  local i=1[m
+[32m+[m[32m  while [ "$i" -le "$tries" ]; do[m
+[32m+[m[32m    if curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then[m
+[32m+[m[32m      echo "[INFO] API is ready (health OK)"[m
+[32m+[m[32m      return 0[m
+[32m+[m[32m    fi[m
+[32m+[m[32m    sleep "$sleep_s"[m
+[32m+[m[32m    i=$((i+1))[m
+[32m+[m[32m  done[m
+[32m+[m[32m  return 1[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m# 1) If API already responding -> OK[m
+[32m+[m[32mif curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then[m
+[32m+[m[32m  echo "[INFO] API already responding; skipping start"[m
+[32m+[m[32m  echo "----------------------------------------"[m
+[32m+[m[32m  echo "[INFO] OK"[m
+[32m+[m[32m  exit 0[m
+[32m+[m[32mfi[m
+[32m+[m
+[32m+[m[32m# 2) If port is already in use but health not responding -> fail (wrong process)[m
+[32m+[m[32mif ss -lntp 2>/dev/null | grep -q ":${PORT} "; then[m
+[32m+[m[32m  echo "[ERR ] Port ${PORT} is in use, but ${HEALTH_URL} is not responding."[m
+[32m+[m[32m  echo "[ERR ] Stop the process on :${PORT} or fix HEALTH_URL/API_BASE_URL."[m
+[32m+[m[32m  ss -lntp | grep ":${PORT} " || true[m
+[32m+[m[32m  exit 1[m
+[32m+[m[32mfi[m
+[32m+[m
+[32m+[m[32m# 3) Start API in background[m
+[32m+[m[32mecho "[INFO] Starting API in background..."[m
+[32m+[m[32mLOG_DIR="${ROOT_DIR}/reports"[m
+[32m+[m[32mmkdir -p "$LOG_DIR"[m
+[32m+[m[32mRUN_LOG="${LOG_DIR}/api_run_$(date -u +%Y%m%d_%H%M%SZ).log"[m
+[32m+[m
+[32m+[m[32m# Ensure we run from repo root, with same launch profile behavior as before[m
+[32m+[m[32mcd "$ROOT_DIR"[m
+[32m+[m
+[32m+[m[32mnohup dotnet run --project "${ROOT_DIR}/VpnService.Api/VpnService.Api.csproj" \[m
+[32m+[m[32m  >"$RUN_LOG" 2>&1 &[m
+[32m+[m
+[32m+[m[32mPID=$![m
+[32m+[m[32mecho "$PID" > "${LOG_DIR}/api_last_pid.txt"[m
+[32m+[m[32mecho "[INFO] dotnet run PID=${PID}"[m
+[32m+[m[32mecho "[INFO] stdout/stderr -> ${RUN_LOG}"[m
+[32m+[m
+[32m+[m[32m# 4) Wait for readiness[m
+[32m+[m[32mif wait_for_api 80 0.25; then[m
+[32m+[m[32m  echo "----------------------------------------"[m
+[32m+[m[32m  echo "[INFO] OK"[m
+[32m+[m[32m  exit 0[m
+[32m+[m[32mfi[m
+[32m+[m
+[32m+[m[32mecho "[ERR ] API did not become ready in time."[m
+[32m+[m[32mecho "[ERR ] Last 60 lines of ${RUN_LOG}:"[m
+[32m+[m[32mtail -n 60 "$RUN_LOG" || true[m
+[32m+[m[32mexit 1[m
