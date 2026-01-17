@@ -13,7 +13,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-API_URL="${API_URL:-http://127.0.0.1:5272}"
+API_URL="${API_URL:-http://127.0.0.1:5001}"
 IFACE="${IFACE:-wg1}"
 
 REPORT_DIR="${REPORT_DIR:-$REPO_ROOT/reports}"

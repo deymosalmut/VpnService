@@ -12,7 +12,7 @@ need_cmd() {
 hr() { echo "----------------------------------------"; }
 
 # Defaults (можно переопределять через ENV)
-API_BASE_URL="${API_BASE_URL:-http://localhost:5272}"
+API_BASE_URL="${API_BASE_URL:-http://localhost:5001}"
 WG_IFACE="${WG_IFACE:-wg1}"
 
 # Admin login defaults (под твою реализацию)

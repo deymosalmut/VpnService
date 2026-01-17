@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-API="http://127.0.0.1:5272"
+API="http://127.0.0.1:5001"
 
 echo "[1] Health"
 curl -fsS "$API/health" && echo

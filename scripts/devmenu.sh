@@ -7,7 +7,7 @@ export LC_ALL=ru_RU.UTF-8
 # VPN SERVICE DEV MENU + REPORTING (ENGLISH ONLY)
 # ============================================================
 # ---------- Config (override via env) ----------
-export API_URL="${API_URL:-http://127.0.0.1:5272}"
+export API_URL="${API_URL:-http://127.0.0.1:5001}"
 export IFACE="${IFACE:-wg1}"
 export ADMIN_USER="${ADMIN_USER:-admin}"
 export ADMIN_PASS="${ADMIN_PASS:-admin123}"
@@ -15,7 +15,7 @@ export REPORT_KEEP="${REPORT_KEEP:-10}"
 if [[ -z "${API_PORT:-}" ]]; then
   API_PORT="$(printf '%s' "$API_URL" | sed -n 's#.*://[^:/]*:\([0-9][0-9]*\).*#\1#p')"
 fi
-export API_PORT="${API_PORT:-5272}"
+export API_PORT="${API_PORT:-5001}"
 
 # Resolve script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

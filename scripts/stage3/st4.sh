@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-API="http://127.0.0.1:5272"
+API="http://127.0.0.1:5001"
 USER="testuse1r"
 PASS="SecurePass2026"
 

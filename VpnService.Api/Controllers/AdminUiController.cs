@@ -378,7 +378,8 @@ public class AdminUiController : ControllerBase
 </html>
 """;
 
-    [HttpGet("/admin")]
+[AcceptVerbs("GET", "HEAD")]
+[Route("/admin")]
     public ContentResult Index()
     {
         // Set security headers

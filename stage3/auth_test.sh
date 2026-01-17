@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-API="${1:-http://localhost:5272}"
+API="${1:-http://localhost:5001}"
 USERNAME="${2:-admin}"
 PASSWORD="${3:-admin123}"
 
