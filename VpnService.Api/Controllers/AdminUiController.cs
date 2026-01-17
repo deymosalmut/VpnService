@@ -63,6 +63,13 @@ public class AdminUiController : ControllerBase
       letter-spacing: 0.4px;
     }
 
+    h2 {
+      font-family: var(--serif);
+      font-size: 18px;
+      margin: 0;
+      letter-spacing: 0.3px;
+    }
+
     .tagline {
       color: var(--muted);
       font-size: 14px;
@@ -108,6 +115,18 @@ public class AdminUiController : ControllerBase
       background: #fcfbf9;
     }
 
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      font-family: var(--mono);
+      background: #fcfbf9;
+      resize: vertical;
+    }
+
     .row {
       display: flex;
       gap: 12px;
@@ -151,6 +170,31 @@ public class AdminUiController : ControllerBase
       box-shadow: none;
     }
 
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .button-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-family: var(--sans);
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+
+    .button-link.secondary {
+      background: #fff;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
     .status {
       font-size: 13px;
       padding: 4px 10px;
@@ -183,6 +227,55 @@ public class AdminUiController : ControllerBase
       color: #f1c4c9;
     }
 
+    .error-text {
+      color: var(--danger);
+      font-size: 12px;
+    }
+
+    .mono-inline {
+      font-family: var(--mono);
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    .peer-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .qr-box {
+      background: #f7f3ea;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-box img {
+      width: 220px;
+      max-width: 100%;
+      height: auto;
+    }
+
+    details {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fbf8f2;
+    }
+
+    summary {
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
     @keyframes rise {
       from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
@@ -191,6 +284,7 @@ public class AdminUiController : ControllerBase
     @media (max-width: 720px) {
       header { align-items: flex-start; }
       h1 { font-size: 24px; }
+      .peer-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -199,7 +293,7 @@ public class AdminUiController : ControllerBase
     <header>
       <div>
         <h1>VPN Service Admin</h1>
-        <div class="tagline">Minimal UI for auth + WireGuard admin read-only endpoints.</div>
+        <div class="tagline">Minimal UI for auth + WireGuard admin endpoints.</div>
       </div>
       <div class="warning">Do not use on untrusted machines.</div>
     </header>
@@ -229,6 +323,81 @@ public class AdminUiController : ControllerBase
         <button id="btn-logout" class="warn" type="button">Logout</button>
       </div>
 
+      <section id="create-peer" class="stack">
+        <div class="row" style="align-items: center;">
+          <h2>Create WireGuard peer</h2>
+          <span id="peer-status" class="status">Idle</span>
+        </div>
+
+        <form id="peer-form" class="stack">
+          <div class="row">
+            <div>
+              <label for="peer-name">Name</label>
+              <input id="peer-name" placeholder="iphone-alex" required>
+            </div>
+            <div>
+              <label for="peer-dns">DNS (optional)</label>
+              <input id="peer-dns" placeholder="1.1.1.1">
+            </div>
+          </div>
+
+          <details>
+            <summary>Advanced</summary>
+            <div class="row" style="margin-top: 10px;">
+              <div>
+                <label for="peer-endpoint-host">Endpoint host</label>
+                <input id="peer-endpoint-host" placeholder="vpn.example.com">
+              </div>
+              <div>
+                <label for="peer-endpoint-port">Endpoint port</label>
+                <input id="peer-endpoint-port" type="number" min="1" max="65535" placeholder="51820">
+              </div>
+            </div>
+          </details>
+
+          <div class="row" style="align-items: center;">
+            <button id="create-peer-btn" class="primary" type="submit">Create peer</button>
+            <button id="peer-clear-btn" class="secondary" type="button">Clear</button>
+            <span id="peer-error" class="error-text" role="alert"></span>
+          </div>
+        </form>
+
+        <div id="peer-result" class="stack" style="display: none;">
+          <div class="peer-grid">
+            <div>
+              <label>QR Code</label>
+              <div class="qr-box">
+                <img id="peer-qr" alt="WireGuard QR code">
+              </div>
+            </div>
+            <div class="stack">
+              <div>
+                <label>Public key</label>
+                <div id="peer-public-key" class="mono-inline"></div>
+              </div>
+              <div class="row">
+                <div>
+                  <label>Address</label>
+                  <div id="peer-address" class="mono-inline"></div>
+                </div>
+                <div>
+                  <label>Interface</label>
+                  <div id="peer-iface" class="mono-inline"></div>
+                </div>
+              </div>
+              <div class="row">
+                <a id="peer-config-download" class="button-link secondary" href="#" download>Download config</a>
+                <button id="peer-copy-btn" class="secondary" type="button">Copy config</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label for="peer-config">Config</label>
+            <textarea id="peer-config" readonly></textarea>
+          </div>
+        </div>
+      </section>
+
       <div>
         <label for="output">Response</label>
         <pre id="output" class="output">Ready.</pre>
@@ -248,6 +417,24 @@ public class AdminUiController : ControllerBase
       const wgStateBtn = document.getElementById("btn-wg-state");
       const reconcileBtn = document.getElementById("btn-reconcile");
       const logoutBtn = document.getElementById("btn-logout");
+      const peerForm = document.getElementById("peer-form");
+      const peerNameInput = document.getElementById("peer-name");
+      const peerDnsInput = document.getElementById("peer-dns");
+      const peerEndpointHostInput = document.getElementById("peer-endpoint-host");
+      const peerEndpointPortInput = document.getElementById("peer-endpoint-port");
+      const peerStatusEl = document.getElementById("peer-status");
+      const peerErrorEl = document.getElementById("peer-error");
+      const peerResultEl = document.getElementById("peer-result");
+      const peerQrEl = document.getElementById("peer-qr");
+      const peerPublicKeyEl = document.getElementById("peer-public-key");
+      const peerAddressEl = document.getElementById("peer-address");
+      const peerIfaceEl = document.getElementById("peer-iface");
+      const peerConfigEl = document.getElementById("peer-config");
+      const peerDownloadEl = document.getElementById("peer-config-download");
+      const peerCopyBtn = document.getElementById("peer-copy-btn");
+      const peerClearBtn = document.getElementById("peer-clear-btn");
+      const peerCreateBtn = document.getElementById("create-peer-btn");
+      let peerConfigUrl = "";
 
       function setOutput(text, isError) {
         outputEl.textContent = text || "";
@@ -271,6 +458,175 @@ public class AdminUiController : ControllerBase
         const hasToken = Boolean(getToken());
         statusEl.textContent = hasToken ? "Logged in" : "Not logged in";
         statusEl.classList.toggle("ok", hasToken);
+        setPeerFormEnabled(hasToken);
+        setPeerStatus(hasToken ? "Ready" : "Login required", hasToken);
+      }
+
+      function setPeerFormEnabled(enabled) {
+        const disabled = !enabled;
+        peerNameInput.disabled = disabled;
+        peerDnsInput.disabled = disabled;
+        peerEndpointHostInput.disabled = disabled;
+        peerEndpointPortInput.disabled = disabled;
+        peerCreateBtn.disabled = disabled;
+      }
+
+      function setPeerStatus(text, ok) {
+        peerStatusEl.textContent = text || "";
+        peerStatusEl.classList.toggle("ok", Boolean(ok));
+      }
+
+      function setPeerError(message) {
+        peerErrorEl.textContent = message || "";
+      }
+
+      function clearPeerResult() {
+        if (peerConfigUrl) {
+          URL.revokeObjectURL(peerConfigUrl);
+          peerConfigUrl = "";
+        }
+
+        peerResultEl.style.display = "none";
+        peerQrEl.removeAttribute("src");
+        peerConfigEl.value = "";
+        peerPublicKeyEl.textContent = "";
+        peerAddressEl.textContent = "";
+        peerIfaceEl.textContent = "";
+        peerDownloadEl.removeAttribute("href");
+      }
+
+      function sanitizeFileName(name) {
+        const trimmed = (name || "").trim();
+        const safe = trimmed.replace(/[^a-zA-Z0-9._-]+/g, "_");
+        return safe || "peer";
+      }
+
+      function updateDownloadLink(name, config) {
+        if (peerConfigUrl) {
+          URL.revokeObjectURL(peerConfigUrl);
+        }
+        const blob = new Blob([config], { type: "text/plain" });
+        peerConfigUrl = URL.createObjectURL(blob);
+        peerDownloadEl.href = peerConfigUrl;
+        peerDownloadEl.download = sanitizeFileName(name) + ".conf";
+      }
+
+      async function copyPeerConfig() {
+        const config = peerConfigEl.value;
+        if (!config) {
+          setPeerError("No config to copy.");
+          return;
+        }
+
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(config);
+          } else {
+            peerConfigEl.focus();
+            peerConfigEl.select();
+            peerConfigEl.setSelectionRange(0, peerConfigEl.value.length);
+            document.execCommand("copy");
+            peerConfigEl.blur();
+          }
+          setPeerError("");
+          setPeerStatus("Config copied", true);
+        } catch (err) {
+          setPeerError("Failed to copy config.");
+          setPeerStatus("Error", false);
+        }
+      }
+
+      async function handleCreatePeer(event) {
+        event.preventDefault();
+        setPeerError("");
+
+        const token = getToken();
+        if (!token) {
+          setPeerStatus("Login required", false);
+          setPeerError("Unauthorized, please login.");
+          return;
+        }
+
+        const name = peerNameInput.value.trim();
+        if (!name) {
+          setPeerError("Name is required.");
+          return;
+        }
+
+        const payload = { name: name };
+        const dns = peerDnsInput.value.trim();
+        const endpointHost = peerEndpointHostInput.value.trim();
+        const endpointPortRaw = peerEndpointPortInput.value.trim();
+
+        if (dns) {
+          payload.dns = dns;
+        }
+
+        if (endpointHost) {
+          payload.endpointHost = endpointHost;
+        }
+
+        if (endpointPortRaw) {
+          const port = Number(endpointPortRaw);
+          if (!Number.isInteger(port) || port < 1 || port > 65535) {
+            setPeerError("Endpoint port must be between 1 and 65535.");
+            return;
+          }
+          payload.endpointPort = port;
+        }
+
+        try {
+          setPeerStatus("Creating...", false);
+          clearPeerResult();
+
+          const response = await fetch(baseUrl + "/api/v1/admin/wg/peer", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.status === 401) {
+            setPeerStatus("Login required", false);
+            setPeerError("Unauthorized, please login.");
+            return;
+          }
+
+          const body = await readBody(response);
+          if (!response.ok) {
+            setPeerStatus("Error", false);
+            setPeerError(body.text || "Peer creation failed.");
+            return;
+          }
+
+          if (!body.json) {
+            setPeerStatus("Error", false);
+            setPeerError("Unexpected response format.");
+            return;
+          }
+
+          const data = body.json;
+          if (!data.qrDataUrl || !data.config) {
+            setPeerStatus("Error", false);
+            setPeerError("Response missing config or QR.");
+            return;
+          }
+
+          peerQrEl.src = data.qrDataUrl;
+          peerConfigEl.value = data.config;
+          peerPublicKeyEl.textContent = data.publicKey || "";
+          peerAddressEl.textContent = data.address || "";
+          peerIfaceEl.textContent = data.iface || "";
+          updateDownloadLink(name, data.config);
+          peerResultEl.style.display = "grid";
+
+          setPeerStatus("Ready", true);
+        } catch (err) {
+          setPeerStatus("Error", false);
+          setPeerError(String(err));
+        }
       }
 
       async function readBody(response) {
@@ -369,6 +725,17 @@ public class AdminUiController : ControllerBase
       logoutBtn.addEventListener("click", function () {
         setToken("");
         setOutput("Logged out. Session storage cleared.");
+        setPeerError("");
+        clearPeerResult();
+        setPeerStatus("Login required", false);
+      });
+      peerForm.addEventListener("submit", handleCreatePeer);
+      peerCopyBtn.addEventListener("click", copyPeerConfig);
+      peerClearBtn.addEventListener("click", function () {
+        peerForm.reset();
+        clearPeerResult();
+        setPeerError("");
+        setPeerStatus(getToken() ? "Ready" : "Login required", Boolean(getToken()));
       });
 
       updateStatus();
@@ -378,13 +745,8 @@ public class AdminUiController : ControllerBase
 </html>
 """;
 
-<<<<<<< HEAD
 [AcceptVerbs("GET", "HEAD")]
 [Route("/admin")]
-=======
-    [AcceptVerbs("GET","HEAD")]
-    [Route("/admin")]
->>>>>>> b837a0a (Fix /admin HEAD and make 06_run_api.sh idempotent)
     public ContentResult Index()
     {
         // Set security headers
