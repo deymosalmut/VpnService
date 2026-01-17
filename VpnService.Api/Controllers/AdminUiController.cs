@@ -378,8 +378,13 @@ public class AdminUiController : ControllerBase
 </html>
 """;
 
+<<<<<<< HEAD
 [AcceptVerbs("GET", "HEAD")]
 [Route("/admin")]
+=======
+    [AcceptVerbs("GET","HEAD")]
+    [Route("/admin")]
+>>>>>>> b837a0a (Fix /admin HEAD and make 06_run_api.sh idempotent)
     public ContentResult Index()
     {
         // Set security headers
