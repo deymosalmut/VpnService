@@ -1,8 +1,0 @@
-----------------------------------------------------------------
->>> Stage 3.5 — DIFF/PLAN (read-only)
-----------------------------------------------------------------
-DESIRED_FILE=
-ACTUAL_FILE=
-PLAN=/opt/vpn-service/reports/stage35_plan_2026-01-06_22-01-04.tsv
-DIFF=/opt/vpn-service/reports/stage35_diff_2026-01-06_22-01-04.txt
-FAIL missing desired file

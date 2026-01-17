@@ -57,3 +57,7 @@ reports/stage35_last_run.env
 # End of file
 
 .token
+
+# local reports
+reports/*.log
+reports/*.log.*
