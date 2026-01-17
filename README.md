@@ -121,6 +121,8 @@ dotnet run
 ### Требования
 - .NET 9.0+
 - PostgreSQL 12+
+- WireGuard tooling: `wg`, `qrencode` (peer QR), `jq` (smoke checks)
+- Docker runtime for WG admin endpoints: `CAP_NET_ADMIN` + `/dev/net/tun` (host network mode recommended)
 
 ### Установка базы данных
 
@@ -283,7 +285,16 @@ export Jwt__Issuer="VpnService"
 **Features:**
 - Health check: `GET /health` (no auth)
 - WireGuard state: `GET /api/v1/admin/wg/state` (requires auth)
+- Create WireGuard peer + QR: `POST /api/v1/admin/wg/peer` (requires auth)
 - Reconcile dry-run: `GET /api/v1/admin/wg/reconcile?mode=dry-run` (requires auth)
+
+To create a peer and QR, call `POST /api/v1/admin/wg/peer` with JSON (omit `allowedIps` to auto-allocate the next free `/32` from `10.8.0.0/24`, or set `WireGuard:AddressPoolCidr`). If `endpointHost` is not provided, set `WireGuard:EndpointHost` in env/config. The response includes `config`, `qrPngBase64`, and `qrDataUrl`; import the config in WireGuard or scan the QR code in the client app.
+
+Optional persistence:
+- Set `WireGuard:PersistPeers=true` (default false) to persist new peers to the WireGuard config on disk (public key + allowed IPs only).
+- `WireGuard:ConfigPath` defaults to `/etc/wireguard/<iface>.conf` when not set.
+- Persistence uses `wg syncconf` under a lock; client private keys are never stored on the server.
+- When running in Docker, bind-mount the `WireGuard:ConfigPath` directory (default `/etc/wireguard`) or changes will be lost on container recreation (e.g. `-v /etc/wireguard:/etc/wireguard`).
 
 ## ✅ Smoke Tests / Checks
 

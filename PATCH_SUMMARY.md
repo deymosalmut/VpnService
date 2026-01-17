@@ -6,6 +6,19 @@
 
 ---
 
+## Update: Admin WireGuard peer + QR endpoint
+
+Added `POST /api/v1/admin/wg/peer` for admins to generate a peer config and QR code. Omit `allowedIps` to auto-allocate a free `/32`; the response includes `config` and `qrDataUrl` for import or QR scanning in the WireGuard client.
+
+## Update: Safe WireGuard peer allocation + persistence option
+
+- Added an interprocess lock around IP allocation + `wg set` to avoid duplicate addresses under concurrent requests.
+- Optional persistence: set `WireGuard:PersistPeers=true` (default false) to append peers to the WireGuard config (public key + allowed IPs only).
+- Config path defaults to `/etc/wireguard/<iface>.conf` and can be overridden via `WireGuard:ConfigPath`.
+- Docker note: bind-mount the `WireGuard:ConfigPath` directory (default `/etc/wireguard`) or persisted changes will be lost on container recreation (e.g. `-v /etc/wireguard:/etc/wireguard`).
+- Persistence uses `wg syncconf` and avoids logging secrets.
+- Smoke check `14_create_peer_qr_smoke.sh` now parses JSON via `jq`.
+
 ## 📑 Содержание
 
 1. [Обзор патча](#обзор-патча)
