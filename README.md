@@ -257,6 +257,53 @@ export Jwt__Issuer="VpnService"
 | Health Checks | ✅ Завершено |
 | Git Repository | ✅ Завершено |
 
+## � Login Rate Limiting
+
+**Rate Limits:**
+- `10 requests/min per IP` — Enforced by `LoginRateLimiter.cs`
+- `5 requests/min per username` — Prevents brute force attacks
+
+**Behavior:**
+- Exceeding limit returns `HTTP 429 Too Many Requests`
+- Window resets after 60 seconds of inactivity
+- Limits apply to `POST /api/v1/auth/login` only
+
+## 🖥️ Admin UI (Local Only)
+
+**Access:**
+- URL: `http://127.0.0.1:5001/admin`
+- Served by `AdminUiController.cs` as embedded HTML+JavaScript
+- No external dependencies (CSS/JS inline)
+
+**Authentication:**
+- Login form sends credentials to `POST /api/v1/auth/login`
+- Access token stored in `sessionStorage` (not persisted to disk)
+- Token required for authorized endpoints (`/api/v1/admin/wg/*`)
+
+**Features:**
+- Health check: `GET /health` (no auth)
+- WireGuard state: `GET /api/v1/admin/wg/state` (requires auth)
+- Reconcile dry-run: `GET /api/v1/admin/wg/reconcile?mode=dry-run` (requires auth)
+
+## ✅ Smoke Tests / Checks
+
+All scripts located in `scripts/checks/` and tested on Ubuntu 22.04+ with bash.
+
+### 11_admin_panel_smoke.sh
+**Purpose:** Verify `/admin` endpoint returns valid HTML  
+**Expected:** HTTP 200, Content-Type: text/html, page contains "VPN Service Admin"  
+**Run:** `bash scripts/checks/11_admin_panel_smoke.sh`
+
+### 12_login_ratelimit_smoke.sh
+**Purpose:** Verify login rate limiting works (returns 429 after 10+ attempts)  
+**Expected:** At least one HTTP 429 response from login endpoint  
+**Run:** `bash scripts/checks/12_login_ratelimit_smoke.sh`
+
+### 13_build_no_cs1998.sh
+**Purpose:** Ensure Debug build does not trigger CS1998 (async without await) warnings  
+**Expected:** Build succeeds, output contains no "CS1998"  
+**Run:** `bash scripts/checks/13_build_no_cs1998.sh`
+
 ## 🔄 Следующие этапы
 
 - **ЭТАП 3**: Linux Adapter + WireGuard управление
@@ -266,15 +313,3 @@ export Jwt__Issuer="VpnService"
 ## 📄 Лицензия
 
 MIT
-# VpnService
-# VpnService
-
-## Checks
-
-- `scripts/checks/13_build_no_cs1998.sh`: Builds `VpnService.Api/VpnService.Api.csproj` (Debug) and fails if CS1998 appears in the output.
-
-## Admin panel (MVP)
-
-- Open http://127.0.0.1:5272/admin
-- Login with admin credentials
-- Use "WG State" or "Reconcile (dry-run)" for read-only admin calls

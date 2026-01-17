@@ -15,7 +15,7 @@ set -Eeuo pipefail
 #   ENDPOINT= host:port or [ipv6]:port (optional)
 #   KEEPALIVE = integer seconds (0 means do not set)
 #   ENABLED = 1/0 (if 0 => treated as DEL)
-# ------------------------------------------------------------
+# -------------------------------------------a-----------------
 
 REPO_ROOT="${REPO_ROOT:-/opt/vpn-service}"
 OUT_DIR="${OUT_DIR:-$REPO_ROOT/reports}"

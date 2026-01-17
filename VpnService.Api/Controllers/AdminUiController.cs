@@ -381,6 +381,15 @@ public class AdminUiController : ControllerBase
     [HttpGet("/admin")]
     public ContentResult Index()
     {
+        // Set security headers
+        Response.Headers["Cache-Control"] = "no-store, no-cache";
+        Response.Headers["Pragma"] = "no-cache";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        Response.Headers["X-Frame-Options"] = "DENY";
+        Response.Headers["Referrer-Policy"] = "no-referrer";
+        Response.Headers["Content-Security-Policy"] = 
+            "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'";
+
         return Content(AdminHtml, "text/html; charset=utf-8");
     }
 }

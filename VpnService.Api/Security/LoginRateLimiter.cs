@@ -13,8 +13,12 @@ internal static class LoginRateLimiter
 
     public static bool IsLimited(string? ip, string? username)
     {
+        // Normalize IP: use "unknown" if null/whitespace
         var normalizedIp = string.IsNullOrWhiteSpace(ip) ? "unknown" : ip.Trim();
-        var normalizedUser = string.IsNullOrWhiteSpace(username) ? null : username.Trim();
+        
+        // Normalize username: convert to lowercase for case-insensitive rate limiting
+        var normalizedUser = string.IsNullOrWhiteSpace(username) ? null : username.Trim().ToLowerInvariant();
+        
         var nowTicks = DateTime.UtcNow.Ticks;
 
         var ipAllowed = Consume(IpWindows, normalizedIp, MaxAttemptsPerIp, nowTicks);
@@ -42,16 +46,19 @@ internal static class LoginRateLimiter
         {
             lock (_lock)
             {
+                // Remove expired attempts outside the current window
                 while (_attempts.Count > 0 && nowTicks - _attempts.Peek() > windowTicks)
                 {
                     _attempts.Dequeue();
                 }
 
+                // Reject if at max attempts
                 if (_attempts.Count >= maxAttempts)
                 {
                     return false;
                 }
 
+                // Consume one attempt
                 _attempts.Enqueue(nowTicks);
                 return true;
             }
