@@ -1,0 +1,224 @@
+version: "3.8"
+
+# =============================================================
+# VPN Service — Full Stack (dev)
+# Usage: docker compose -f docker-compose.yml up -d
+# =============================================================
+
+services:
+  # ============================================
+  # Infrastructure
+  # ============================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: vpn-postgres
+    environment:
+      POSTGRES_USER: vpn
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vpn_dev_password}
+      POSTGRES_DB: vpn_users
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vpn -d vpn_users"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - vpn-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: vpn-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - vpn-net
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: vpn-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: vpn
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-vpn_dev_password}
+      RABBITMQ_DEFAULT_VHOST: vpn
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq-definitions.json:/etc/rabbitmq/definitions.json
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vpn-net
+
+  marzban:
+    image: gozargah/marzban:dev
+    container_name: vpn-marzban
+    environment:
+      UVICORN_HOST: "0.0.0.0"
+      UVICORN_PORT: "8000"
+      SUDO_USERNAME: ${MARZBAN_ADMIN_USER:-admin}
+      SUDO_PASSWORD: ${MARZBAN_ADMIN_PASSWORD:-marzban_dev_password}
+      DOCS: "true"
+      XRAY_SUBSCRIPTION_URL_PREFIX: ${MARZBAN_SUB_PREFIX:-http://localhost:8000}
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+    volumes:
+      - marzban_data:/var/lib/marzban
+      - ./marzban/xray_config.json:/var/lib/marzban/xray_config.json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/admin/token", "-X", "POST", "-d", "username=admin&password=marzban_dev_password", "--max-time", "3"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - vpn-net
+
+  # ============================================
+  # Application services
+  # ============================================
+
+  auth:
+    build:
+      context: .
+      args:
+        SERVICE: auth
+    container_name: vpn-auth
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://vpn:${RABBITMQ_PASSWORD:-vpn_dev_password}@rabbitmq:5672/vpn
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-jwt-secret-change-in-production}
+      AUTH_PORT: "3000"
+    ports:
+      - "3001:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - vpn-net
+
+  billing:
+    build:
+      context: .
+      args:
+        SERVICE: billing
+    container_name: vpn-billing
+    environment:
+      DATABASE_URL: postgres://vpn:${POSTGRES_PASSWORD:-vpn_dev_password}@postgres:5432/vpn_users?sslmode=disable
+      RABBITMQ_URL: amqp://vpn:${RABBITMQ_PASSWORD:-vpn_dev_password}@rabbitmq:5672/vpn
+      SBP_WEBHOOK_SECRET: ${SBP_WEBHOOK_SECRET:-dev-sbp-secret}
+      CRYPTOMUS_API_KEY: ${CRYPTOMUS_API_KEY:-dev-cryptomus-key}
+      CRYPTOMUS_MERCHANT_ID: ${CRYPTOMUS_MERCHANT_ID:-dev-merchant-id}
+      BILLING_PORT: "3000"
+    ports:
+      - "3002:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - vpn-net
+
+  user-mgmt:
+    build:
+      context: .
+      args:
+        SERVICE: user-mgmt
+    container_name: vpn-user-mgmt
+    environment:
+      DATABASE_URL: postgres://vpn:${POSTGRES_PASSWORD:-vpn_dev_password}@postgres:5432/vpn_users?sslmode=disable
+      RABBITMQ_URL: amqp://vpn:${RABBITMQ_PASSWORD:-vpn_dev_password}@rabbitmq:5672/vpn
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - vpn-net
+
+  proxy-ctrl:
+    build:
+      context: .
+      args:
+        SERVICE: proxy-ctrl
+    container_name: vpn-proxy-ctrl
+    environment:
+      REDIS_URL: redis://redis:6379/1
+      RABBITMQ_URL: amqp://vpn:${RABBITMQ_PASSWORD:-vpn_dev_password}@rabbitmq:5672/vpn
+      MARZBAN_BASE_URL: http://marzban:8000
+      MARZBAN_ADMIN_USER: ${MARZBAN_ADMIN_USER:-admin}
+      MARZBAN_ADMIN_PASSWORD: ${MARZBAN_ADMIN_PASSWORD:-marzban_dev_password}
+      XRAY_INBOUND_TAG: VLESS_REALITY
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      marzban:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - vpn-net
+
+  notification:
+    build:
+      context: .
+      args:
+        SERVICE: notification
+    container_name: vpn-notification
+    environment:
+      RABBITMQ_URL: amqp://vpn:${RABBITMQ_PASSWORD:-vpn_dev_password}@rabbitmq:5672/vpn
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - vpn-net
+
+  # ============================================
+  # Dev tools
+  # ============================================
+
+  adminer:
+    image: adminer:latest
+    container_name: vpn-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vpn-net
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  marzban_data:
+
+networks:
+  vpn-net:
+    driver: bridge

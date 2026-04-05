@@ -1,0 +1,116 @@
+{
+  "vhosts": [
+    { "name": "vpn" }
+  ],
+  "users": [
+    {
+      "name": "vpn",
+      "password_hash": "vpn_dev_password",
+      "hashing_algorithm": "internal",
+      "tags": "administrator"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "vpn",
+      "vhost": "vpn",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "vpn.events",
+      "vhost": "vpn",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false
+    }
+  ],
+  "queues": [
+    {
+      "name": "q.user.activated",
+      "vhost": "vpn",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "vpn.events.dlx",
+        "x-dead-letter-routing-key": "dlx.user.activated"
+      }
+    },
+    {
+      "name": "q.payment.confirmed",
+      "vhost": "vpn",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "vpn.events.dlx",
+        "x-dead-letter-routing-key": "dlx.payment.confirmed"
+      }
+    },
+    {
+      "name": "q.user.ready_for_proxy",
+      "vhost": "vpn",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "vpn.events.dlx",
+        "x-dead-letter-routing-key": "dlx.user.ready_for_proxy"
+      }
+    },
+    {
+      "name": "q.config.ready",
+      "vhost": "vpn",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "vpn.events.dlx",
+        "x-dead-letter-routing-key": "dlx.config.ready"
+      }
+    },
+    {
+      "name": "q.dlx",
+      "vhost": "vpn",
+      "durable": true,
+      "auto_delete": false
+    }
+  ],
+  "bindings": [
+    {
+      "source": "vpn.events",
+      "vhost": "vpn",
+      "destination": "q.user.activated",
+      "destination_type": "queue",
+      "routing_key": "user.activated"
+    },
+    {
+      "source": "vpn.events",
+      "vhost": "vpn",
+      "destination": "q.payment.confirmed",
+      "destination_type": "queue",
+      "routing_key": "payment.confirmed"
+    },
+    {
+      "source": "vpn.events",
+      "vhost": "vpn",
+      "destination": "q.user.ready_for_proxy",
+      "destination_type": "queue",
+      "routing_key": "user.ready_for_proxy"
+    },
+    {
+      "source": "vpn.events",
+      "vhost": "vpn",
+      "destination": "q.config.ready",
+      "destination_type": "queue",
+      "routing_key": "config.ready"
+    },
+    {
+      "source": "vpn.events.dlx",
+      "vhost": "vpn",
+      "destination": "q.dlx",
+      "destination_type": "queue",
+      "routing_key": "#"
+    }
+  ]
+}

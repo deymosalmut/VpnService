@@ -1,0 +1,120 @@
+version: "3.8"
+
+services:
+  # ============================================
+  # Infrastructure
+  # ============================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: vpn-postgres
+    environment:
+      POSTGRES_USER: vpn
+      POSTGRES_PASSWORD: vpn_dev_password
+      POSTGRES_DB: vpn_users
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vpn -d vpn_users"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - vpn-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: vpn-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - vpn-net
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: vpn-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: vpn
+      RABBITMQ_DEFAULT_PASS: vpn_dev_password
+      RABBITMQ_DEFAULT_VHOST: vpn
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq-definitions.json:/etc/rabbitmq/definitions.json
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vpn-net
+
+  # ============================================
+  # Marzban (Xray management panel)
+  # ============================================
+
+  marzban:
+    image: gozargah/marzban:dev
+    container_name: vpn-marzban
+    environment:
+      UVICORN_HOST: "0.0.0.0"
+      UVICORN_PORT: "8000"
+      SUDO_USERNAME: "admin"
+      SUDO_PASSWORD: "marzban_dev_password"
+      DOCS: "true"
+      XRAY_SUBSCRIPTION_URL_PREFIX: "http://localhost:8000"
+      # SQLite for dev (Marzban's own DB, not our user DB)
+      SQLALCHEMY_DATABASE_URL: "sqlite:////var/lib/marzban/db.sqlite3"
+    ports:
+      - "8000:8000"   # Dashboard + API
+      - "8443:8443"   # VLESS Reality inbound
+    volumes:
+      - marzban_data:/var/lib/marzban
+      - ./marzban/xray_config.json:/var/lib/marzban/xray_config.json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/admin/token", "-X", "POST", "-d", "username=admin&password=marzban_dev_password", "--max-time", "3"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - vpn-net
+
+  # ============================================
+  # Dev tools
+  # ============================================
+
+  # Adminer — lightweight DB viewer (http://localhost:8080)
+  adminer:
+    image: adminer:latest
+    container_name: vpn-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vpn-net
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  marzban_data:
+
+networks:
+  vpn-net:
+    driver: bridge

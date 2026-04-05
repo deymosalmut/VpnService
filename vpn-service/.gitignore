@@ -1,0 +1,81 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.txt
+
+# Go workspace file
+go.work
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+
+# Build output
+/bin/
+/dist/
+*.o
+*.a
+
+# Testing
+/vendor/
+coverage/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE settings
+.idea/
+.vscode/
+*.sublime-workspace
+
+# Docker
+docker-compose.override.yml
+
+# Credentials (be careful with these!)
+credentials.json
+secrets.json
+private_key.pem
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# Generated files
+*.pb.go
+*.pb.gw.go
+
+# Air - Live reload for Go
+tmp/
+
+# Delve - Go debugger
+.dlv/
+
+# Build artifacts
+dist/
+build/
